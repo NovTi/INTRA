@@ -358,6 +358,294 @@ __forceinline__ __device__ void copy(TiledCopy tiled_copy, Tensor<Engine0, Layou
     // }
 }
 
+
+template <bool Is_even_MN=true, bool Is_even_K=true, bool Clear_OOB_MN=false, bool Clear_OOB_K=true,
+          typename Engine0, typename Layout0, typename Engine1, typename Layout1>
+__forceinline__ __device__ void copy_org_cleaned(Tensor<Engine0, Layout0> const &S, Tensor<Engine1, Layout1> &D) {
+    static_assert(!(Clear_OOB_MN && !Clear_OOB_K));
+    // m & 1 = m % 2
+
+    #pragma unroll
+    for (int m = 0; m < size<1>(S); ++m) {
+        cute::copy(S(_, m, 0), D(_, m, 0));
+    }
+}
+
+
+template <bool Is_even_MN=true, bool Is_even_K=true, bool Clear_OOB_MN=false, bool Clear_OOB_K=true,
+          typename Engine0, typename Layout0, typename Engine1, typename Layout1>
+__forceinline__ __device__ void copy_sparse(Tensor<Engine0, Layout0> const &S, Tensor<Engine1, Layout1> &D) {
+    static_assert(!(Clear_OOB_MN && !Clear_OOB_K));
+    // m & 1 = m % 2
+
+    #pragma unroll
+    for (int m = 0; m < size<1>(D); ++m) {
+        if (size<2>(S) > 1){
+            cute::copy(S(_, 0, m & 1, m / 2), D(_, m, 0));
+        } else{
+            cute::copy(S(_, 0, 0, m), D(_, m, 0));
+        }
+    }
+}
+
+template <bool Is_even_MN=true, bool Is_even_K=true, bool Clear_OOB_MN=false, bool Clear_OOB_K=true,
+          typename Engine0, typename Layout0, typename Engine1, typename Layout1>
+__forceinline__ __device__ void copy_sparse_mask1(Tensor<Engine0, Layout0> const &S, Tensor<Engine1, Layout1> &D) {
+    static_assert(!(Clear_OOB_MN && !Clear_OOB_K));
+    // m & 1 = m % 2
+    // tQgQ: 
+    // mask1
+    #pragma unroll
+    for (int m = 0; m < size<1>(D); ++m) {
+        if (size<5>(S) > 2){
+            // ((_8,_1),_1,_1,_1,_2,_4):((1,_0),_0,_0,_0,2048,8192)
+            cute::copy(S(_, 0, 0, 0, m & 1, m >> 1), D(_, m, 0));
+        } else{
+            // ((_8,_1),_1,_1,_2,_2,_2):((1,_0),_0,_0,640,40960,163840)
+            // m / 2 equals m >> 1 | m / 4 equals m >> 2
+            // m & 1: last bit | (m >> 1) & 1: second last bit | (m >> 2) & 1: third last bit
+            cute::copy(S(_, 0, 0, m & 1, (m >> 1) & 1, (m >> 2) & 1), D(_, m, 0));
+        }
+
+    }
+}
+
+
+
+template <bool Is_even_MN=true, bool Is_even_K=true, bool Clear_OOB_MN=false, bool Clear_OOB_K=true,
+          typename Engine0, typename Layout0, typename Engine1, typename Layout1>
+__forceinline__ __device__ void copy_sparse_smem2reg(Tensor<Engine0, Layout0> const &S, Tensor<Engine1, Layout1> &D) {
+    static_assert(!(Clear_OOB_MN && !Clear_OOB_K));
+
+    #pragma unroll
+    for (int m = 0; m < size<1>(S); ++m) {
+        if (size<2>(D) > 1){
+            cute::copy(S(_, m, 0), D(_, 0, m & 1, m / 2));
+        } else{
+            cute::copy(S(_, m, 0), D(_, 0, 0, m));
+        }
+        // cute::copy(S(_, m, 0), D(_, 0, m & 1, m / 2));
+    }
+}
+
+template <bool Is_even_MN=true, bool Is_even_K=true, bool Clear_OOB_MN=false, bool Clear_OOB_K=true,
+          typename Engine0, typename Layout0, typename Engine1, typename Layout1>
+__forceinline__ __device__ void copy_sparse_smem2reg_mask1(Tensor<Engine0, Layout0> const &S, Tensor<Engine1, Layout1> &D) {
+    static_assert(!(Clear_OOB_MN && !Clear_OOB_K));
+
+    // tQgQ: ((_8,_1),_1,_1,_2,_2,_2):((1,_0),_0,_0,640,40960,163840)
+    // tQsQ: 4096: ((_8,_1),_8,_1):((_1,_0),_1024,_0)    1024: ((_8,_1),_8,_1):((_1,_0),_1024,_0)
+    // mask1
+    #pragma unroll
+    for (int m = 0; m < size<1>(S); ++m) {
+        if (size<5>(D) > 2){
+            // ((_8,_1),_1,_1,_1,_2,_4):((1,_0),_0,_0,_0,2048,8192)
+            cute::copy(S(_, m, 0), D(_, 0, 0, 0, m & 1, m >> 1));
+        } else{
+            // ((_8,_1),_1,_1,_2,_2,_2):((1,_0),_0,_0,640,40960,163840)
+            cute::copy(S(_, m, 0), D(_, 0, 0, m & 1, (m >> 1) & 1, (m >> 2) & 1));
+        }
+    }
+}
+
+
+
+template <bool Is_even_MN=true, bool Is_even_K=true, bool Clear_OOB_MN=false, bool Clear_OOB_K=true,
+          typename Engine0, typename Layout0, typename Engine1, typename Layout1>
+__forceinline__ __device__ void copy_sparse_r2gmem(Tensor<Engine0, Layout0> const &S, Tensor<Engine1, Layout1> &D) {
+    static_assert(!(Clear_OOB_MN && !Clear_OOB_K));
+
+    #pragma unroll
+    for (int m = 0; m < size<3>(S); ++m) {
+        //  ((_8,_1),_1,_2,_4):((_1,_0),_0,_8,_16)
+        if (size<2>(S) > 1){
+            #pragma unroll
+            for (int n = 0; n < size<2>(S); ++n){
+                cute::copy(S(_, 0, n, m), D(_, 0, n, m));
+            }
+        } else{
+            cute::copy(S(_, 0, 0, m), D(_, 0, 0, m));
+        }
+    }
+}
+
+template <bool Is_even_MN=true, bool Is_even_K=true, bool Clear_OOB_MN=false, bool Clear_OOB_K=true,
+          typename Engine0, typename Layout0, typename Engine1, typename Layout1>
+__forceinline__ __device__ void copy_sparse_r2gmem_mask1(Tensor<Engine0, Layout0> const &S, Tensor<Engine1, Layout1> &D) {
+    static_assert(!(Clear_OOB_MN && !Clear_OOB_K));
+    // tQgO: 4096 ((_8,_1),_1,_1,_2,_2,_2):((1,_0),_0,_0,640,40960,163840)
+    // tQgO: 1024 ((_8,_1),_1,_1,_1,_2,_4):((1,_0),_0,_0,_0,2048,8192)
+
+    if (size<5>(S) > 2){
+        #pragma unroll
+        for (int m = 0; m < size<5>(S); ++m) {
+            cute::copy(S(_, 0, 0, 0, 0, m), D(_, 0, 0, 0, 0, m));
+            cute::copy(S(_, 0, 0, 0, 1, m), D(_, 0, 0, 0, 1, m));
+        }
+    } else{
+        #pragma unroll
+        for (int m = 0; m < size<3>(S); ++m) {
+            #pragma unroll
+            for (int n = 0; n < size<4>(S); ++n) {
+                cute::copy(S(_, 0, 0, m, n, 0), D(_, 0, 0, m, n, 0));
+                cute::copy(S(_, 0, 0, m, n, 1), D(_, 0, 0, m, n, 1));
+            }
+        }
+    }
+
+}
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+
+/////////////////////////////////////// Flux Specific Copies ///////////////////////////////////////////////
+
+
+template <bool Is_even_MN=true, bool Is_even_K=true, bool Clear_OOB_MN=false, bool Clear_OOB_K=true,
+          typename Engine0, typename Layout0, typename Engine1, typename Layout1>
+__forceinline__ __device__ void copy_sparse_flux_o(Tensor<Engine0, Layout0> const &S, Tensor<Engine1, Layout1> &D) {
+    static_assert(!(Clear_OOB_MN && !Clear_OOB_K));
+    // m & 1 = m % 2
+
+    // S: ((_8,_1),_2,_2,_4):((_1,_0),_64,40960,163840)
+
+    // D: ((_8,_1),_8,_2):((_1,_0),_1024,_8192)
+
+    #pragma unroll
+    for (int m = 0; m < size<1>(D); ++m) {
+        cute::copy(S(_, 0, m & 1, m / 2), D(_, m, 0));
+        cute::copy(S(_, 1, m & 1, m / 2), D(_, m, 1));
+    }
+}
+
+template <bool Is_even_MN=true, bool Is_even_K=true, bool Clear_OOB_MN=false, bool Clear_OOB_K=true,
+          typename Engine0, typename Layout0, typename Engine1, typename Layout1>
+__forceinline__ __device__ void copy_sparse_flux_mask0(Tensor<Engine0, Layout0> const &S, Tensor<Engine1, Layout1> &D) {
+    static_assert(!(Clear_OOB_MN && !Clear_OOB_K));
+    // m & 1 = m % 2
+
+    // ((_8,_1),_2,_2):((_1,_0),_1024,_2048)
+    // #pragma unroll
+    // for (int m = 0; m < size<1>(D); ++m) {
+    //     cute::copy(S(_, m, 0, 0), D(_, m, 0));
+    //     cute::copy(S(_, m, 1, 0), D(_, m, 1));
+    // }
+
+    #pragma unroll
+    for (int m = 0; m < size<2>(D); ++m) {
+        cute::copy(S(_, m, 0, 0), D(_, 0, m));
+        cute::copy(S(_, m, 1, 0), D(_, 1, m));
+    }
+}
+
+template <bool Is_even_MN=true, bool Is_even_K=true, bool Clear_OOB_MN=false, bool Clear_OOB_K=true,
+          typename Engine0, typename Layout0, typename Engine1, typename Layout1>
+__forceinline__ __device__ void copy_org_cleaned_flux(Tensor<Engine0, Layout0> const &S, Tensor<Engine1, Layout1> &D) {
+    static_assert(!(Clear_OOB_MN && !Clear_OOB_K));
+    // m & 1 = m % 2
+
+    #pragma unroll
+    for (int m = 0; m < size<1>(S); ++m) {
+        cute::copy(S(_, m, 0), D(_, m, 0));
+        cute::copy(S(_, m, 1), D(_, m, 1));
+    }
+}
+
+
+template <bool Is_even_MN=true, bool Is_even_K=true, bool Clear_OOB_MN=false, bool Clear_OOB_K=true,
+          typename Engine0, typename Layout0, typename Engine1, typename Layout1>
+__forceinline__ __device__ void copy_sparse_smem2reg_flux_mask0(Tensor<Engine0, Layout0> const &S, Tensor<Engine1, Layout1> &D) {
+    static_assert(!(Clear_OOB_MN && !Clear_OOB_K));
+    // S: ((_1,_8),_8,_2):((_0,_1),_1024,_8192)
+    // D: ((_8,_1),_2,_2,_4):((_1,_0),_8,_16,_32)
+    #pragma unroll
+    for (int m = 0; m < size<1>(S); ++m) {
+        cute::copy(S(_, m, 0), D(_, 0, m & 1, m / 2));
+        cute::copy(S(_, m, 1), D(_, 1, m & 1, m / 2));
+    }
+
+}
+
+
+template <bool Is_even_MN=true, bool Is_even_K=true, bool Clear_OOB_MN=false, bool Clear_OOB_K=true,
+          typename Engine0, typename Layout0, typename Engine1, typename Layout1>
+__forceinline__ __device__ void copy_sparse_r2gmem_flux_mask0(Tensor<Engine0, Layout0> const &S, Tensor<Engine1, Layout1> &D) {
+    static_assert(!(Clear_OOB_MN && !Clear_OOB_K));
+
+    #pragma unroll
+    for (int m = 0; m < size<3>(S); ++m) {
+        // ((_8,_1),_2,_2,_4):((_1,_0),_8,_16,_32)
+        #pragma unroll
+        for (int n = 0; n < size<2>(S); ++n){
+            cute::copy(S(_, 0, n, m), D(_, 0, n, m));
+            cute::copy(S(_, 1, n, m), D(_, 1, n, m));
+        }
+    }
+}
+
+
+template <bool Is_even_MN=true, bool Is_even_K=true, bool Clear_OOB_MN=false, bool Clear_OOB_K=true,
+          typename Engine0, typename Layout0, typename Engine1, typename Layout1>
+__forceinline__ __device__ void copy_sparse_mask1_flux(Tensor<Engine0, Layout0> const &S, Tensor<Engine1, Layout1> &D) {
+    static_assert(!(Clear_OOB_MN && !Clear_OOB_K));
+    // m & 1 = m % 2
+    // tQgQ: 
+    // mask1
+    #pragma unroll
+    for (int m = 0; m < size<1>(D); ++m) {
+        // ((_8,_1),_1,_1,_2,_2,_2):((1,_0),_0,_0,640,40960,163840)
+        // m / 2 equals m >> 1 | m / 4 equals m >> 2
+        // m & 1: last bit | (m >> 1) & 1: second last bit | (m >> 2) & 1: third last bit
+        cute::copy(S(_, 0, 0, m & 1, (m >> 1) & 1, (m >> 2) & 1), D(_, m, 0));
+
+        cute::copy(S(_, 1, 0, m & 1, (m >> 1) & 1, (m >> 2) & 1), D(_, m, 1));
+    }
+}
+
+template <bool Is_even_MN=true, bool Is_even_K=true, bool Clear_OOB_MN=false, bool Clear_OOB_K=true,
+          typename Engine0, typename Layout0, typename Engine1, typename Layout1>
+__forceinline__ __device__ void copy_sparse_smem2reg_mask1_flux(Tensor<Engine0, Layout0> const &S, Tensor<Engine1, Layout1> &D) {
+    static_assert(!(Clear_OOB_MN && !Clear_OOB_K));
+    // tOsO -> tOrO
+    // tOsO: ((_1,_8),_8,_2):((_0,_1),_1024,_8192)
+    // tOrO: ((_8,_1),_2,_1,_2,_2,_2):((_1,_0),_8,_0,_16,_32,_64)
+    // mask1
+    #pragma unroll
+    for (int m = 0; m < size<1>(S); ++m) {
+        // ((_8,_1),_1,_1,_2,_2,_2):((1,_0),_0,_0,640,40960,163840)
+        // m / 2 equals m >> 1 | m / 4 equals m >> 2
+        // m & 1: last bit | (m >> 1) & 1: second last bit | (m >> 2) & 1: third last bit
+        cute::copy(S(_, m, 0), D(_, 0, 0, m & 1, (m >> 1) & 1, (m >> 2) & 1));
+
+        cute::copy(S(_, m, 1), D(_, 1, 0, m & 1, (m >> 1) & 1, (m >> 2) & 1));
+    }
+}
+
+template <bool Is_even_MN=true, bool Is_even_K=true, bool Clear_OOB_MN=false, bool Clear_OOB_K=true,
+          typename Engine0, typename Layout0, typename Engine1, typename Layout1>
+__forceinline__ __device__ void copy_sparse_r2gmem_mask1_flux(Tensor<Engine0, Layout0> const &S, Tensor<Engine1, Layout1> &D) {
+    static_assert(!(Clear_OOB_MN && !Clear_OOB_K));
+    // tOrO / tQgO: ((_8,_1),_2,_1,_2,_2,_2):((_1,_0),_8,_0,_16,_32,_64)
+
+    #pragma unroll
+    for (int m = 0; m < size<3>(S); ++m) {
+        #pragma unroll
+        for (int n = 0; n < size<4>(S); ++n) {
+            for (int k = 0; k < size<5>(S); ++k) {
+                cute::copy(S(_, 0, 0, m, n, k), D(_, 0, 0, m, n, k));
+                cute::copy(S(_, 1, 0, m, n, k), D(_, 1, 0, m, n, k));
+            }
+        }
+    }
+}
+
+
+/////////////////////////////////////// Flux Specific Copies ///////////////////////////////////////////////
+
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 template <bool Is_even_K=true,

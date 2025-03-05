@@ -57,7 +57,8 @@ BASE_WHEEL_URL = (
 
 # FORCE_BUILD: Force a fresh build locally, instead of attempting to find prebuilt wheels
 # SKIP_CUDA_BUILD: Intended to allow CI to use a simple `python setup.py sdist` run to copy over raw files, without any cuda compilation
-FORCE_BUILD = os.getenv("FLASH_ATTENTION_FORCE_BUILD", "FALSE") == "TRUE"
+# FORCE_BUILD = os.getenv("FLASH_ATTENTION_FORCE_BUILD", "FALSE") == "TRUE"
+FORCE_BUILD = True
 SKIP_CUDA_BUILD = os.getenv("FLASH_ATTENTION_SKIP_CUDA_BUILD", "FALSE") == "TRUE"
 # For CI, we want the option to build with C++11 ABI since the nvcr images use C++11 ABI
 FORCE_CXX11_ABI = os.getenv("FLASH_ATTENTION_FORCE_CXX11_ABI", "FALSE") == "TRUE"
@@ -169,10 +170,11 @@ if not SKIP_CUDA_BUILD and not IS_ROCM:
     # cc_flag.append("arch=compute_75,code=sm_75")
     cc_flag.append("-gencode")
     cc_flag.append("arch=compute_80,code=sm_80")
-    if CUDA_HOME is not None:
-        if bare_metal_version >= Version("11.8"):
-            cc_flag.append("-gencode")
-            cc_flag.append("arch=compute_90,code=sm_90")
+    
+    # if CUDA_HOME is not None:
+    #     if bare_metal_version >= Version("11.8"):
+    #         cc_flag.append("-gencode")
+    #         cc_flag.append("arch=compute_90,code=sm_90")
 
     # HACK: The compiler flag -D_GLIBCXX_USE_CXX11_ABI is set to be the same as
     # torch._C._GLIBCXX_USE_CXX11_ABI
@@ -184,90 +186,98 @@ if not SKIP_CUDA_BUILD and not IS_ROCM:
             name="flash_attn_2_cuda",
             sources=[
                 "csrc/flash_attn/flash_api.cpp",
-                "csrc/flash_attn/src/flash_fwd_hdim32_fp16_sm80.cu",
-                "csrc/flash_attn/src/flash_fwd_hdim32_bf16_sm80.cu",
-                "csrc/flash_attn/src/flash_fwd_hdim64_fp16_sm80.cu",
-                "csrc/flash_attn/src/flash_fwd_hdim64_bf16_sm80.cu",
-                "csrc/flash_attn/src/flash_fwd_hdim96_fp16_sm80.cu",
-                "csrc/flash_attn/src/flash_fwd_hdim96_bf16_sm80.cu",
-                "csrc/flash_attn/src/flash_fwd_hdim128_fp16_sm80.cu",
-                "csrc/flash_attn/src/flash_fwd_hdim128_bf16_sm80.cu",
-                "csrc/flash_attn/src/flash_fwd_hdim160_fp16_sm80.cu",
-                "csrc/flash_attn/src/flash_fwd_hdim160_bf16_sm80.cu",
-                "csrc/flash_attn/src/flash_fwd_hdim192_fp16_sm80.cu",
-                "csrc/flash_attn/src/flash_fwd_hdim192_bf16_sm80.cu",
-                "csrc/flash_attn/src/flash_fwd_hdim256_fp16_sm80.cu",
-                "csrc/flash_attn/src/flash_fwd_hdim256_bf16_sm80.cu",
-                "csrc/flash_attn/src/flash_fwd_hdim32_fp16_causal_sm80.cu",
-                "csrc/flash_attn/src/flash_fwd_hdim32_bf16_causal_sm80.cu",
-                "csrc/flash_attn/src/flash_fwd_hdim64_fp16_causal_sm80.cu",
-                "csrc/flash_attn/src/flash_fwd_hdim64_bf16_causal_sm80.cu",
-                "csrc/flash_attn/src/flash_fwd_hdim96_fp16_causal_sm80.cu",
-                "csrc/flash_attn/src/flash_fwd_hdim96_bf16_causal_sm80.cu",
-                "csrc/flash_attn/src/flash_fwd_hdim128_fp16_causal_sm80.cu",
-                "csrc/flash_attn/src/flash_fwd_hdim128_bf16_causal_sm80.cu",
-                "csrc/flash_attn/src/flash_fwd_hdim160_fp16_causal_sm80.cu",
-                "csrc/flash_attn/src/flash_fwd_hdim160_bf16_causal_sm80.cu",
-                "csrc/flash_attn/src/flash_fwd_hdim192_fp16_causal_sm80.cu",
-                "csrc/flash_attn/src/flash_fwd_hdim192_bf16_causal_sm80.cu",
-                "csrc/flash_attn/src/flash_fwd_hdim256_fp16_causal_sm80.cu",
-                "csrc/flash_attn/src/flash_fwd_hdim256_bf16_causal_sm80.cu",
-                "csrc/flash_attn/src/flash_bwd_hdim32_fp16_sm80.cu",
-                "csrc/flash_attn/src/flash_bwd_hdim32_bf16_sm80.cu",
-                "csrc/flash_attn/src/flash_bwd_hdim64_fp16_sm80.cu",
-                "csrc/flash_attn/src/flash_bwd_hdim64_bf16_sm80.cu",
-                "csrc/flash_attn/src/flash_bwd_hdim96_fp16_sm80.cu",
-                "csrc/flash_attn/src/flash_bwd_hdim96_bf16_sm80.cu",
-                "csrc/flash_attn/src/flash_bwd_hdim128_fp16_sm80.cu",
-                "csrc/flash_attn/src/flash_bwd_hdim128_bf16_sm80.cu",
-                "csrc/flash_attn/src/flash_bwd_hdim160_fp16_sm80.cu",
-                "csrc/flash_attn/src/flash_bwd_hdim160_bf16_sm80.cu",
-                "csrc/flash_attn/src/flash_bwd_hdim192_fp16_sm80.cu",
-                "csrc/flash_attn/src/flash_bwd_hdim192_bf16_sm80.cu",
-                "csrc/flash_attn/src/flash_bwd_hdim256_fp16_sm80.cu",
-                "csrc/flash_attn/src/flash_bwd_hdim256_bf16_sm80.cu",
-                "csrc/flash_attn/src/flash_bwd_hdim32_fp16_causal_sm80.cu",
-                "csrc/flash_attn/src/flash_bwd_hdim32_bf16_causal_sm80.cu",
-                "csrc/flash_attn/src/flash_bwd_hdim64_fp16_causal_sm80.cu",
-                "csrc/flash_attn/src/flash_bwd_hdim64_bf16_causal_sm80.cu",
-                "csrc/flash_attn/src/flash_bwd_hdim96_fp16_causal_sm80.cu",
-                "csrc/flash_attn/src/flash_bwd_hdim96_bf16_causal_sm80.cu",
-                "csrc/flash_attn/src/flash_bwd_hdim128_fp16_causal_sm80.cu",
-                "csrc/flash_attn/src/flash_bwd_hdim128_bf16_causal_sm80.cu",
-                "csrc/flash_attn/src/flash_bwd_hdim160_fp16_causal_sm80.cu",
-                "csrc/flash_attn/src/flash_bwd_hdim160_bf16_causal_sm80.cu",
-                "csrc/flash_attn/src/flash_bwd_hdim192_fp16_causal_sm80.cu",
-                "csrc/flash_attn/src/flash_bwd_hdim192_bf16_causal_sm80.cu",
-                "csrc/flash_attn/src/flash_bwd_hdim256_fp16_causal_sm80.cu",
-                "csrc/flash_attn/src/flash_bwd_hdim256_bf16_causal_sm80.cu",
-                "csrc/flash_attn/src/flash_fwd_split_hdim32_fp16_sm80.cu",
-                "csrc/flash_attn/src/flash_fwd_split_hdim32_bf16_sm80.cu",
-                "csrc/flash_attn/src/flash_fwd_split_hdim64_fp16_sm80.cu",
-                "csrc/flash_attn/src/flash_fwd_split_hdim64_bf16_sm80.cu",
-                "csrc/flash_attn/src/flash_fwd_split_hdim96_fp16_sm80.cu",
-                "csrc/flash_attn/src/flash_fwd_split_hdim96_bf16_sm80.cu",
-                "csrc/flash_attn/src/flash_fwd_split_hdim128_fp16_sm80.cu",
-                "csrc/flash_attn/src/flash_fwd_split_hdim128_bf16_sm80.cu",
-                "csrc/flash_attn/src/flash_fwd_split_hdim160_fp16_sm80.cu",
-                "csrc/flash_attn/src/flash_fwd_split_hdim160_bf16_sm80.cu",
-                "csrc/flash_attn/src/flash_fwd_split_hdim192_fp16_sm80.cu",
-                "csrc/flash_attn/src/flash_fwd_split_hdim192_bf16_sm80.cu",
-                "csrc/flash_attn/src/flash_fwd_split_hdim256_fp16_sm80.cu",
-                "csrc/flash_attn/src/flash_fwd_split_hdim256_bf16_sm80.cu",
-                "csrc/flash_attn/src/flash_fwd_split_hdim32_fp16_causal_sm80.cu",
-                "csrc/flash_attn/src/flash_fwd_split_hdim32_bf16_causal_sm80.cu",
-                "csrc/flash_attn/src/flash_fwd_split_hdim64_fp16_causal_sm80.cu",
-                "csrc/flash_attn/src/flash_fwd_split_hdim64_bf16_causal_sm80.cu",
-                "csrc/flash_attn/src/flash_fwd_split_hdim96_fp16_causal_sm80.cu",
-                "csrc/flash_attn/src/flash_fwd_split_hdim96_bf16_causal_sm80.cu",
-                "csrc/flash_attn/src/flash_fwd_split_hdim128_fp16_causal_sm80.cu",
-                "csrc/flash_attn/src/flash_fwd_split_hdim128_bf16_causal_sm80.cu",
-                "csrc/flash_attn/src/flash_fwd_split_hdim160_fp16_causal_sm80.cu",
-                "csrc/flash_attn/src/flash_fwd_split_hdim160_bf16_causal_sm80.cu",
-                "csrc/flash_attn/src/flash_fwd_split_hdim192_fp16_causal_sm80.cu",
-                "csrc/flash_attn/src/flash_fwd_split_hdim192_bf16_causal_sm80.cu",
-                "csrc/flash_attn/src/flash_fwd_split_hdim256_fp16_causal_sm80.cu",
-                "csrc/flash_attn/src/flash_fwd_split_hdim256_bf16_causal_sm80.cu",
+                # "csrc/flash_attn/src/flash_fwd_hdim32_fp16_sm80.cu",
+                # "csrc/flash_attn/src/flash_fwd_hdim32_bf16_sm80.cu",
+
+                # "csrc/flash_attn/src/flash_fwd_hdim64_fp16_sm80_mask0_text_front.cu",
+                "csrc/flash_attn/src/flash_fwd_hdim128_bf16_sm80_mask0_text_front.cu",
+                "csrc/flash_attn/src/flash_fwd_hdim128_bf16_sm80_mask1_text_front.cu",
+
+                # "csrc/flash_attn/src/flash_fwd_hdim64_fp16_sm80_mask0.cu",
+                # "csrc/flash_attn/src/flash_fwd_hdim64_fp16_sm80_mask1.cu",
+                # "csrc/flash_attn/src/flash_fwd_hdim64_fp16_sm80.cu",
+
+                # "csrc/flash_attn/src/flash_fwd_hdim64_bf16_sm80.cu",
+                # "csrc/flash_attn/src/flash_fwd_hdim96_fp16_sm80.cu",
+                # "csrc/flash_attn/src/flash_fwd_hdim96_bf16_sm80.cu",
+                # "csrc/flash_attn/src/flash_fwd_hdim128_fp16_sm80.cu",
+                # "csrc/flash_attn/src/flash_fwd_hdim128_bf16_sm80.cu",
+                # "csrc/flash_attn/src/flash_fwd_hdim160_fp16_sm80.cu",
+                # "csrc/flash_attn/src/flash_fwd_hdim160_bf16_sm80.cu",
+                # "csrc/flash_attn/src/flash_fwd_hdim192_fp16_sm80.cu",
+                # "csrc/flash_attn/src/flash_fwd_hdim192_bf16_sm80.cu",
+                # "csrc/flash_attn/src/flash_fwd_hdim256_fp16_sm80.cu",
+                # "csrc/flash_attn/src/flash_fwd_hdim256_bf16_sm80.cu",
+                # "csrc/flash_attn/src/flash_fwd_hdim32_fp16_causal_sm80.cu",
+                # "csrc/flash_attn/src/flash_fwd_hdim32_bf16_causal_sm80.cu",
+                # "csrc/flash_attn/src/flash_fwd_hdim64_fp16_causal_sm80.cu",
+                # "csrc/flash_attn/src/flash_fwd_hdim64_bf16_causal_sm80.cu",
+                # "csrc/flash_attn/src/flash_fwd_hdim96_fp16_causal_sm80.cu",
+                # "csrc/flash_attn/src/flash_fwd_hdim96_bf16_causal_sm80.cu",
+                # "csrc/flash_attn/src/flash_fwd_hdim128_fp16_causal_sm80.cu",
+                # "csrc/flash_attn/src/flash_fwd_hdim128_bf16_causal_sm80.cu",
+                # "csrc/flash_attn/src/flash_fwd_hdim160_fp16_causal_sm80.cu",
+                # "csrc/flash_attn/src/flash_fwd_hdim160_bf16_causal_sm80.cu",
+                # "csrc/flash_attn/src/flash_fwd_hdim192_fp16_causal_sm80.cu",
+                # "csrc/flash_attn/src/flash_fwd_hdim192_bf16_causal_sm80.cu",
+                # "csrc/flash_attn/src/flash_fwd_hdim256_fp16_causal_sm80.cu",
+                # "csrc/flash_attn/src/flash_fwd_hdim256_bf16_causal_sm80.cu",
+                # "csrc/flash_attn/src/flash_bwd_hdim32_fp16_sm80.cu",
+                # "csrc/flash_attn/src/flash_bwd_hdim32_bf16_sm80.cu",
+                # "csrc/flash_attn/src/flash_bwd_hdim64_fp16_sm80.cu",
+                # "csrc/flash_attn/src/flash_bwd_hdim64_bf16_sm80.cu",
+                # "csrc/flash_attn/src/flash_bwd_hdim96_fp16_sm80.cu",
+                # "csrc/flash_attn/src/flash_bwd_hdim96_bf16_sm80.cu",
+                # "csrc/flash_attn/src/flash_bwd_hdim128_fp16_sm80.cu",
+                # "csrc/flash_attn/src/flash_bwd_hdim128_bf16_sm80.cu",
+                # "csrc/flash_attn/src/flash_bwd_hdim160_fp16_sm80.cu",
+                # "csrc/flash_attn/src/flash_bwd_hdim160_bf16_sm80.cu",
+                # "csrc/flash_attn/src/flash_bwd_hdim192_fp16_sm80.cu",
+                # "csrc/flash_attn/src/flash_bwd_hdim192_bf16_sm80.cu",
+                # "csrc/flash_attn/src/flash_bwd_hdim256_fp16_sm80.cu",
+                # "csrc/flash_attn/src/flash_bwd_hdim256_bf16_sm80.cu",
+                # "csrc/flash_attn/src/flash_bwd_hdim32_fp16_causal_sm80.cu",
+                # "csrc/flash_attn/src/flash_bwd_hdim32_bf16_causal_sm80.cu",
+                # "csrc/flash_attn/src/flash_bwd_hdim64_fp16_causal_sm80.cu",
+                # "csrc/flash_attn/src/flash_bwd_hdim64_bf16_causal_sm80.cu",
+                # "csrc/flash_attn/src/flash_bwd_hdim96_fp16_causal_sm80.cu",
+                # "csrc/flash_attn/src/flash_bwd_hdim96_bf16_causal_sm80.cu",
+                # "csrc/flash_attn/src/flash_bwd_hdim128_fp16_causal_sm80.cu",
+                # "csrc/flash_attn/src/flash_bwd_hdim128_bf16_causal_sm80.cu",
+                # "csrc/flash_attn/src/flash_bwd_hdim160_fp16_causal_sm80.cu",
+                # "csrc/flash_attn/src/flash_bwd_hdim160_bf16_causal_sm80.cu",
+                # "csrc/flash_attn/src/flash_bwd_hdim192_fp16_causal_sm80.cu",
+                # "csrc/flash_attn/src/flash_bwd_hdim192_bf16_causal_sm80.cu",
+                # "csrc/flash_attn/src/flash_bwd_hdim256_fp16_causal_sm80.cu",
+                # "csrc/flash_attn/src/flash_bwd_hdim256_bf16_causal_sm80.cu",
+                # "csrc/flash_attn/src/flash_fwd_split_hdim32_fp16_sm80.cu",
+                # "csrc/flash_attn/src/flash_fwd_split_hdim32_bf16_sm80.cu",
+                # "csrc/flash_attn/src/flash_fwd_split_hdim64_fp16_sm80.cu",
+                # "csrc/flash_attn/src/flash_fwd_split_hdim64_bf16_sm80.cu",
+                # "csrc/flash_attn/src/flash_fwd_split_hdim96_fp16_sm80.cu",
+                # "csrc/flash_attn/src/flash_fwd_split_hdim96_bf16_sm80.cu",
+                # "csrc/flash_attn/src/flash_fwd_split_hdim128_fp16_sm80.cu",
+                # "csrc/flash_attn/src/flash_fwd_split_hdim128_bf16_sm80.cu",
+                # "csrc/flash_attn/src/flash_fwd_split_hdim160_fp16_sm80.cu",
+                # "csrc/flash_attn/src/flash_fwd_split_hdim160_bf16_sm80.cu",
+                # "csrc/flash_attn/src/flash_fwd_split_hdim192_fp16_sm80.cu",
+                # "csrc/flash_attn/src/flash_fwd_split_hdim192_bf16_sm80.cu",
+                # "csrc/flash_attn/src/flash_fwd_split_hdim256_fp16_sm80.cu",
+                # "csrc/flash_attn/src/flash_fwd_split_hdim256_bf16_sm80.cu",
+                # "csrc/flash_attn/src/flash_fwd_split_hdim32_fp16_causal_sm80.cu",
+                # "csrc/flash_attn/src/flash_fwd_split_hdim32_bf16_causal_sm80.cu",
+                # "csrc/flash_attn/src/flash_fwd_split_hdim64_fp16_causal_sm80.cu",
+                # "csrc/flash_attn/src/flash_fwd_split_hdim64_bf16_causal_sm80.cu",
+                # "csrc/flash_attn/src/flash_fwd_split_hdim96_fp16_causal_sm80.cu",
+                # "csrc/flash_attn/src/flash_fwd_split_hdim96_bf16_causal_sm80.cu",
+                # "csrc/flash_attn/src/flash_fwd_split_hdim128_fp16_causal_sm80.cu",
+                # "csrc/flash_attn/src/flash_fwd_split_hdim128_bf16_causal_sm80.cu",
+                # "csrc/flash_attn/src/flash_fwd_split_hdim160_fp16_causal_sm80.cu",
+                # "csrc/flash_attn/src/flash_fwd_split_hdim160_bf16_causal_sm80.cu",
+                # "csrc/flash_attn/src/flash_fwd_split_hdim192_fp16_causal_sm80.cu",
+                # "csrc/flash_attn/src/flash_fwd_split_hdim192_bf16_causal_sm80.cu",
+                # "csrc/flash_attn/src/flash_fwd_split_hdim256_fp16_causal_sm80.cu",
+                # "csrc/flash_attn/src/flash_fwd_split_hdim256_bf16_causal_sm80.cu",
             ],
             extra_compile_args={
                 "cxx": ["-O3", "-std=c++17"] + generator_flag,
@@ -460,6 +470,7 @@ class CachedWheelsCommand(_bdist_wheel):
 
     def run(self):
         if FORCE_BUILD:
+            print("FORCE_BUILD is set. Building from source...")
             return super().run()
 
         wheel_url, wheel_filename = get_wheel_url()
@@ -500,7 +511,8 @@ class NinjaBuildExtension(BuildExtension):
 
             # pick lower value of jobs based on cores vs memory metric to minimize oom and swap usage during compilation
             max_jobs = max(1, min(max_num_jobs_cores, max_num_jobs_memory))
-            os.environ["MAX_JOBS"] = str(max_jobs)
+            # os.environ["MAX_JOBS"] = str(max_jobs)
+            os.environ["MAX_JOBS"] = '64'
 
         super().__init__(*args, **kwargs)
 

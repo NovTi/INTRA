@@ -10,6 +10,9 @@
 #include "cutlass/layout/layout.h"
 #include <cutlass/numeric_types.h>
 
+
+#include "gmem_tile.h"
+
 using namespace cute;
 
 template<int kHeadDim_, int kBlockM_, int kBlockN_, int kNWarps_, typename elem_type=cutlass::half_t>
@@ -46,7 +49,7 @@ struct Flash_kernel_traits {
 };
 
 // If Share_Q_K_smem is true, that forces Is_Q_in_regs to be true
-template<int kHeadDim_, int kBlockM_, int kBlockN_, int kNWarps_, bool Is_Q_in_regs_=false, bool Share_Q_K_smem_=false, typename elem_type=cutlass::half_t,
+template<int width, int maskType, int textLength, int kHeadDim_, int kBlockM_, int kBlockN_, int kNWarps_, bool Is_Q_in_regs_=false, bool Share_Q_K_smem_=false, typename elem_type=cutlass::half_t,
          typename Base=Flash_kernel_traits<kHeadDim_, kBlockM_, kBlockN_, kNWarps_, elem_type> >
 struct Flash_fwd_kernel_traits : public Base {
     using Element = typename Base::Element;
@@ -70,6 +73,13 @@ struct Flash_fwd_kernel_traits : public Base {
     static constexpr int kBlockKSmem = kHeadDim % 64 == 0 ? 64 : 32;
     static constexpr int kBlockKGmem = kHeadDim % 128 == 0 ? 128 : (kHeadDim % 64 == 0 ? 64 : 32);
     static constexpr int kSwizzle = kBlockKSmem == 32 ? 2 : 3;
+
+    static constexpr int sparseTileX = (maskType == 0) ? width / 2 : width / 4;
+    static constexpr int sparseTileMY = (maskType == 0) ? kBlockM_*2 / width : kBlockM_ / width;
+    static constexpr int sparseTileNY = (maskType == 0) ? kBlockN_*2 / width : kBlockN_ / width;
+
+    using Gmem_tile_k = flash::Gmem_tile_kv<width, kBlockN>;
+    using Gmem_tile_v = flash::Gmem_tile_kv<width, kBlockN>;
 
     using TiledMma = TiledMMA<
         typename Base::MMA_Atom_Arch,
@@ -135,6 +145,48 @@ struct Flash_fwd_kernel_traits : public Base {
         make_tiled_copy(Copy_Atom<DefaultCopy, Element>{},
                         GmemLayoutAtom{},
                         Layout<Shape<_1, _8>>{}));  // Val layout, 8 vals per store
+
+    
+    // using GmemLayoutAtomSparse = Layout<Shape<_8, _16>, Stride<_1, _8>>;
+
+    // using GmemTiledCopyQKVSparse = decltype(
+    //     make_tiled_copy(Copy_Atom<Gmem_copy_struct, Element>{},
+    //                     GmemLayoutAtomSparse{},
+    //                     Layout<Shape<_8, _1>>{}));  // Val layout, 8 vals per read
+
+    using GmemLayoutAtomSparse = std::conditional_t<
+        (width == 32 && maskType == 1),
+        Layout<Shape<_8, _8, _2>, Stride<_1, _8, _64>>,
+        Layout<Shape<Int<kGmemThreadsPerRow>, Int<kNThreads / kGmemThreadsPerRow>>, Stride<_1, Int<kGmemThreadsPerRow>>>
+    >;
+
+    using GmemTiledCopyQKVSparse = std::conditional_t<
+        (width == 32 && maskType == 1),
+        decltype(make_tiled_copy(Copy_Atom<Gmem_copy_struct, Element>{},
+                                 GmemLayoutAtomSparse{},
+                                 Layout<Shape<_8, _1, _1>>{})),
+        decltype(make_tiled_copy(Copy_Atom<Gmem_copy_struct, Element>{},
+                                 GmemLayoutAtomSparse{},
+                                 Layout<Shape<_8, _1>>{}))
+    >;
+
+    // using GmemLayoutAtomSparse = Layout<Shape <_8, _8, _2>,
+    //                             Stride<_1, _8, _64>>;
+    // using GmemTiledCopyQKVSparse = decltype(
+    //     make_tiled_copy(Copy_Atom<Gmem_copy_struct, Element>{},
+    //                     GmemLayoutAtomSparse{},
+    //                     Layout<Shape<_8, _1, _1>>{}));  // Val layout, 8 vals per read
+
+
+    // using GmemTiledCopyOSparse = decltype(
+    //     make_tiled_copy(Copy_Atom<DefaultCopy, Element>{},
+    //                     GmemLayoutAtomSparse{},
+    //                     Layout<Shape<_8, _1>>{}));  // Val layout, 8 vals per read
+    // using GmemTiledCopyOSparse = decltype(
+    //     make_tiled_copy(Copy_Atom<Gmem_copy_struct, Element>{},
+    //                     GmemLayoutAtomSparse{},
+    //                     Layout<Shape<_8, _1>>{}));  // Val layout, 8 vals per read
+
 
     using GmemLayoutAtomOaccum = std::conditional_t<
         kBlockKSmem == 32,

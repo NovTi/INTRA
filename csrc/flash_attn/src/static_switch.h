@@ -76,39 +76,47 @@
   #define LOCAL_SWITCH BOOL_SWITCH
 #endif
 
+// cutlass::bfloat16_t
+// cutlass::half_t
 #define FP16_SWITCH(COND, ...)               \
   [&] {                                      \
-    if (COND) {                              \
-      using elem_type = cutlass::half_t;     \
+      using elem_type = cutlass::bfloat16_t;     \
       return __VA_ARGS__();                  \
-    } else {                                 \
-      using elem_type = cutlass::bfloat16_t; \
-      return __VA_ARGS__();                  \
-    }                                        \
   }()
 
 #define HEADDIM_SWITCH(HEADDIM, ...)   \
+  [&] {                                     \
+    constexpr static int kHeadDim = 128;     \
+    return __VA_ARGS__();                   \
+  }()
+
+#define MASK_SWITCH(MASK, ...)   \
   [&] {                                    \
-    if (HEADDIM <= 32) {                   \
-      constexpr static int kHeadDim = 32;  \
+    if (MASK == 0) {                       \
+      constexpr static int mask = 0;       \
       return __VA_ARGS__();                \
-    } else if (HEADDIM <= 64) {            \
-      constexpr static int kHeadDim = 64;  \
-      return __VA_ARGS__();                \
-    } else if (HEADDIM <= 96) {            \
-      constexpr static int kHeadDim = 96;  \
-      return __VA_ARGS__();                \
-    } else if (HEADDIM <= 128) {           \
-      constexpr static int kHeadDim = 128; \
-      return __VA_ARGS__();                \
-    } else if (HEADDIM <= 160) {           \
-      constexpr static int kHeadDim = 160; \
-      return __VA_ARGS__();                \
-    } else if (HEADDIM <= 192) {           \
-      constexpr static int kHeadDim = 192; \
-      return __VA_ARGS__();                \
-    } else if (HEADDIM <= 256) {           \
-      constexpr static int kHeadDim = 256; \
+    } else if (MASK == 1) {                \
+      constexpr static int mask = 1;       \
       return __VA_ARGS__();                \
     }                                      \
   }()
+
+#define WIDTH_SWITCH(WIDTH, ...)   \
+  [&] {                                    \
+    if (WIDTH == 64) {                     \
+      constexpr static int width = 64;     \
+      return __VA_ARGS__();                \
+    }                                      \
+  }()
+
+
+// #define WIDTH_SWITCH(WIDTH, ...)   \
+//   [&] {                                    \
+//     if (WIDTH == 32) {                     \
+//       constexpr static int width = 32;     \
+//       return __VA_ARGS__();                \
+//     } else if (WIDTH == 64) {              \
+//       constexpr static int width = 64;     \
+//       return __VA_ARGS__();                \
+//     }                                      \
+//   }()

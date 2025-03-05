@@ -62,6 +62,8 @@ struct Flash_fwd_params : public Qkv_params {
     // The pointer to the P matrix.
     void * __restrict__ p_ptr;
 
+    // void * __restrict__ q_copy_ptr;
+
     // The pointer to the softmax sum.
     void * __restrict__ softmax_lse_ptr;
     void * __restrict__ softmax_lseaccum_ptr;
@@ -143,6 +145,11 @@ struct Flash_fwd_params : public Qkv_params {
 
     bool unpadded_lse;  // For varlen paths: LSE is in [nheads, total_seqlen_q] format instead of [b, nheads, seqlen_q].
     bool seqlenq_ngroups_swapped;  // q has been transposed from (b, 1, (nheads_kv ngroups), d) to (b, ngroups, nheads_kv, d).
+
+    int length;
+    int width;
+    int mask;
+    int text_length;
 };
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -190,6 +197,11 @@ struct Flash_bwd_params : public Flash_fwd_params {
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 template<typename T, int Headdim, bool Is_causal> void run_mha_fwd_(Flash_fwd_params &params, cudaStream_t stream);
-template<typename T, int Headdim, bool Is_causal> void run_mha_fwd_splitkv_dispatch(Flash_fwd_params &params, cudaStream_t stream);
 
-template<typename T, int Headdim, bool Is_causal> void run_mha_bwd_(Flash_bwd_params &params, cudaStream_t stream);
+template<typename T, int Headdim, bool Is_causal, int mask> void run_mha_fwd_sparse_(Flash_fwd_params &params, cudaStream_t stream);
+
+template<typename T, int Headdim, bool Is_causal, int mask> void run_mha_fwd_sparse_text_front_(Flash_fwd_params &params, cudaStream_t stream);
+
+// template<typename T, int Headdim, bool Is_causal> void run_mha_fwd_splitkv_dispatch(Flash_fwd_params &params, cudaStream_t stream);
+
+// template<typename T, int Headdim, bool Is_causal> void run_mha_bwd_(Flash_bwd_params &params, cudaStream_t stream);

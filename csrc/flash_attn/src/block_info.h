@@ -21,6 +21,8 @@ struct BlockInfo {
         , leftpad_k(params.leftpad_k == nullptr ? 0 : params.leftpad_k[bidb])
         , seqlen_k_cache((!Varlen || params.cu_seqlens_k == nullptr ? params.seqlen_k : (params.is_seqlens_k_cumulative ? params.cu_seqlens_k[bidb + 1] - sum_s_k : params.cu_seqlens_k[bidb])) - leftpad_k)
         , actual_seqlen_k(params.seqused_k ? params.seqused_k[bidb] - leftpad_k : seqlen_k_cache + (params.knew_ptr == nullptr ? 0 : params.seqlen_knew))
+        , length(params.length)
+        , width(params.width)
         {
         }
 
@@ -34,6 +36,8 @@ struct BlockInfo {
         return sum_s_k == -1 ? bidb * batch_stride + leftpad_k * row_stride : uint32_t(sum_s_k + leftpad_k) * row_stride;
     }
 
+    const int length;
+    const int width;
     const int sum_s_q;
     const int sum_s_k;
     const int actual_seqlen_q;

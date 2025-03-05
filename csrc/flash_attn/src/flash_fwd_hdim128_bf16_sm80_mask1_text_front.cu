@@ -5,6 +5,6 @@
 #include "flash_fwd_launch_template.h"
 
 template<>
-void run_mha_fwd_<cutlass::half_t, 64, true>(Flash_fwd_params &params, cudaStream_t stream) {
-    run_mha_fwd_hdim64<cutlass::half_t, true>(params, stream);
+void run_mha_fwd_sparse_text_front_<cutlass::bfloat16_t, 128, false, 1>(Flash_fwd_params &params, cudaStream_t stream) {
+    run_mha_fwd_hdim128_mask1_text_front<cutlass::bfloat16_t, false>(params, stream);
 }

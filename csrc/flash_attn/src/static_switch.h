@@ -95,8 +95,8 @@
     if (MASK == 0) {                       \
       constexpr static int mask = 0;       \
       return __VA_ARGS__();                \
-    } else if (MASK == 1) {                \
-      constexpr static int mask = 1;       \
+    } else if (MASK == 4) {                \
+      constexpr static int mask = 4;       \
       return __VA_ARGS__();                \
     }                                      \
   }()

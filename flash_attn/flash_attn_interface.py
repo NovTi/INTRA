@@ -90,7 +90,7 @@ def _flash_attn_forward(
     width = -1,
     length = -1,
 ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
-    q, k, v = [maybe_contiguous(x) for x in (q, k, v)]
+    q, k, v = [maybe_contiguous(x) for x in (q, k, v)]    
     out, softmax_lse, S_dmask, rng_state = flash_attn_cuda.fwd(
         q,
         k,

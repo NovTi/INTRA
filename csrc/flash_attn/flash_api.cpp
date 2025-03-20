@@ -236,6 +236,11 @@ void set_params_fprop(Flash_fwd_params &params,
 // }
 
 void run_mha_fwd(Flash_fwd_params &params, cudaStream_t stream, bool force_split_kernel=false) {
+
+    // run_mha_fwd_sparse_text_front_<cutlass::bfloat16_t, 128, false, 0>(params, stream);
+
+    // run_mha_fwd_sparse_text_front_<cutlass::bfloat16_t, 128, false, 4>(params, stream);
+
     FP16_SWITCH(!params.is_bf16, [&] {
         HEADDIM_SWITCH(params.d, [&] {
             MASK_SWITCH(params.mask, [&] {
@@ -355,14 +360,7 @@ mha_fwd(at::Tensor &q,         // batch_size x seqlen_q x num_heads x round_mult
         int mask = 0,
         int width = -1,
         int length = -1) {
-    // copy_test_q = torch::empty_like(q);
-
-    // cudaEvent_t start, stop;
-    // cudaEventCreate(&start);
-    // cudaEventCreate(&stop);
-
-    // cudaEventRecord(start, 0);
-
+            
     auto dprops = at::cuda::getCurrentDeviceProperties();
     // bool is_sm75 = dprops->major == 7 && dprops->minor == 5;
     bool is_sm8x = dprops->major == 8 && dprops->minor >= 0;
@@ -398,9 +396,11 @@ mha_fwd(at::Tensor &q,         // batch_size x seqlen_q x num_heads x round_mult
     // int seqlen_q = sizes[1] / 4;
     // const int seqlen_k = k.size(1) / 4;
 
-    int text_lenth = 512;
-    int seqlen_q = sizes[1] / 4;
-    const int seqlen_k = (k.size(1)-text_lenth) / 4 + text_lenth;
+    int text_length = 512;
+
+    int seqlen_q = (mask == 0) ? sizes[1] / 8 : sizes[1];
+    const int seqlen_k = (mask == 0) ? (k.size(1) - text_length) / 8 + text_length : 16 * 16 + text_length;
+
 
     int num_heads = sizes[2];
     const int head_size = sizes[3];
@@ -444,8 +444,7 @@ mha_fwd(at::Tensor &q,         // batch_size x seqlen_q x num_heads x round_mult
             out = out.reshape({batch_size, num_heads_k, ngroups, head_size}).transpose(1, 2);
         }
     } else {
-        // out = torch::empty_like(q);
-        out = torch::zeros_like(q);
+        out = torch::empty_like(q);
     }
 
     auto round_multiple = [](int x, int m) { return (x + m - 1) / m * m; };
@@ -459,8 +458,7 @@ mha_fwd(at::Tensor &q,         // batch_size x seqlen_q x num_heads x round_mult
 
     auto opts = q.options();
 
-    // auto softmax_lse = torch::empty({batch_size, num_heads, seqlen_q}, opts.dtype(at::kFloat));
-    auto softmax_lse = torch::zeros({batch_size, num_heads, seqlen_q}, opts.dtype(at::kFloat));
+    auto softmax_lse = torch::empty({batch_size, num_heads, seqlen_q}, opts.dtype(at::kFloat));
     at::Tensor p;
     // Only return softmax if there's dropout to reduce compilation time
     if (return_softmax) {
@@ -499,7 +497,7 @@ mha_fwd(at::Tensor &q,         // batch_size x seqlen_q x num_heads x round_mult
         params.width = width;
     }
     params.mask = mask;
-    params.text_length = text_lenth;
+    params.text_length = text_length;
 
     // Keep references to these tensors to extend their lifetime
     at::Tensor softmax_lse_accum, out_accum;
@@ -526,24 +524,6 @@ mha_fwd(at::Tensor &q,         // batch_size x seqlen_q x num_heads x round_mult
 
     set_params_alibi(params, alibi_slopes_, batch_size, num_heads);
 
-    // auto stream = at::cuda::getCurrentCUDAStream().stream();
-    // for (int i = 0; i < 100; i++){
-    //     run_mha_fwd(params, stream);
-    // }
-    // double total_time = 0;
-    // for (int i = 0; i < 1000; i++) {
-    //     auto t1 = std::chrono::high_resolution_clock::now();
-    //     run_mha_fwd(params, stream);
-    //     auto t2 = std::chrono::high_resolution_clock::now();
-    //     std::chrono::duration<double, std::milli> tDiff = t2 - t1;
-    //     double time_ms = tDiff.count();
-    //     total_time += time_ms;
-    //     // std::cout << "Trial " << i << " Completed in " << time_ms << "ms ("
-    //     //         << 2e-6 * 2 * 4096 * 640 * sizeof(cutlass::half_t) / time_ms << " GB/s)"
-    //     //         << std::endl;
-    // }
-    // std::cout << "Average time: " << total_time / 1000 << "ms" << std::endl;
-
     if (seqlen_k > 0) {
         auto stream = at::cuda::getCurrentCUDAStream().stream();
         run_mha_fwd(params, stream);
@@ -559,17 +539,6 @@ mha_fwd(at::Tensor &q,         // batch_size x seqlen_q x num_heads x round_mult
         softmax_lse = softmax_lse.reshape({batch_size, num_heads_k * seqlen_q, 1});
     }
 
-    // cudaEventRecord(stop, 0);
-
-    // cudaEventSynchronize(stop);
-    // float elapsedTime;
-    // cudaEventElapsedTime(&elapsedTime, start, stop);
-    // printf("Org total: %.20f\n", elapsedTime);
-
-    // cudaEventDestroy(start);
-    // cudaEventDestroy(stop);
-
-    // time_tensor[0] = elapsedTime;
     return {out, softmax_lse, p, rng_state};
 }
 
@@ -804,24 +773,24 @@ mha_fwd(at::Tensor &q,         // batch_size x seqlen_q x num_heads x round_mult
 
 //     set_params_alibi(params, alibi_slopes_, batch_size, num_heads);
 
-//     if (max_seqlen_k > 0) {
-//         auto stream = at::cuda::getCurrentCUDAStream().stream();
-//         run_mha_fwd(params, stream, paged_KV);
-//     } else {
-//         // If seqlen_k == 0, then we have an empty tensor. We need to set the output to 0.
-//         out.zero_();
-//         softmax_lse.fill_(std::numeric_limits<float>::infinity());
-//     }
+//     // if (max_seqlen_k > 0) {
+//     //     auto stream = at::cuda::getCurrentCUDAStream().stream();
+//     //     run_mha_fwd(params, stream, paged_KV);
+//     // } else {
+//     //     // If seqlen_k == 0, then we have an empty tensor. We need to set the output to 0.
+//     //     out.zero_();
+//     //     softmax_lse.fill_(std::numeric_limits<float>::infinity());
+//     // }
 
-//     if (seqlenq_ngroups_swapped) {
-//         int64_t size_before[] = {batch_size, max_seqlen_q, num_heads_k, head_size};
-//         int64_t size_after[] = {batch_size, num_heads_k * max_seqlen_q, head_size};
-//         out = out.reshape(size_before).transpose(1, 2).reshape(size_after);
-//         q = q.reshape(size_before).transpose(1, 2).reshape(size_after);
-//         softmax_lse = softmax_lse.reshape({num_heads * max_seqlen_q, batch_size});
-//     }
+//     // if (seqlenq_ngroups_swapped) {
+//     //     int64_t size_before[] = {batch_size, max_seqlen_q, num_heads_k, head_size};
+//     //     int64_t size_after[] = {batch_size, num_heads_k * max_seqlen_q, head_size};
+//     //     out = out.reshape(size_before).transpose(1, 2).reshape(size_after);
+//     //     q = q.reshape(size_before).transpose(1, 2).reshape(size_after);
+//     //     softmax_lse = softmax_lse.reshape({num_heads * max_seqlen_q, batch_size});
+//     // }
 
-//     return {out, softmax_lse, p, rng_state};
+//     // return {out, softmax_lse, p, rng_state};
 // }
 
 // void run_mha_bwd(Flash_bwd_params &params, cudaStream_t stream) {

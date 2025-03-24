@@ -481,6 +481,343 @@ struct Gmem_tile_qo_8group {
 
 
 
+////////////////////////////////// llm Loader /////////////////////////////////////////
+
+
+template<
+    int kBlockN_
+>
+struct Gmem_tile_kv_llm_mask0 {
+
+    static constexpr int kBlockN = kBlockN_;
+    static constexpr int BYTES_PER_ELEMENT = 2;
+
+    // Ctor.
+    template<typename Params>
+    inline __device__ Gmem_tile_kv_llm_mask0(void *ptr_, const Params &params, const int tidx, int batch_offset, const int group_id, const int seq_length_, const int bidh)
+        : row_stride(params.k_row_stride)
+        , ptr(reinterpret_cast<char *>(ptr_))
+        , token_increment(tidx / 8)
+        , group_num(params.group_num)
+        , seq_length(seq_length_)
+        , dim_increment((tidx % 8) * 8) {
+        
+        // 8 groups： 2 x 4
+        gourp_offset = group_id * row_stride;
+        ptr += (uint32_t)(batch_offset + params.d * bidh) * BYTES_PER_ELEMENT;
+    }
+
+    template <typename Engine, typename Layout>
+    inline __device__ void load(int n_block, Tensor<Engine, Layout> &D) {
+        const char *new_ptr;
+
+        int token_offset = n_block * kBlockN + token_increment;
+
+        if (token_offset < seq_length){
+            new_ptr = ptr + (uint32_t)(token_offset * group_num * row_stride + dim_increment + gourp_offset) * BYTES_PER_ELEMENT;
+            cute::custom_copy_kv(new_ptr, D, 0);
+        }
+
+        token_offset += 16;
+        if (token_offset < seq_length){
+            new_ptr = ptr + (uint32_t)(token_offset * group_num * row_stride + dim_increment + gourp_offset) * BYTES_PER_ELEMENT;
+            cute::custom_copy_kv(new_ptr, D, 1);
+        }
+
+        token_offset += 16;
+        if (token_offset < seq_length){
+            new_ptr = ptr + (uint32_t)(token_offset * group_num * row_stride + dim_increment + gourp_offset) * BYTES_PER_ELEMENT;
+            cute::custom_copy_kv(new_ptr, D, 2);
+        }
+
+
+        token_offset += 16;
+        if (token_offset < seq_length){
+            new_ptr = ptr + (uint32_t)(token_offset * group_num * row_stride + dim_increment + gourp_offset) * BYTES_PER_ELEMENT;
+            cute::custom_copy_kv(new_ptr, D, 3);
+        }
+
+        cute::cp_async_fence();
+    }
+
+    const uint32_t row_stride;
+    const int group_num;
+    const int token_increment;
+    const int dim_increment;
+    int gourp_offset;
+    int seq_length;
+
+    // The pointer.
+    char *ptr;
+
+};
+
+
+template<
+    int kBlockN_
+>
+struct Gmem_tile_kv_llm_mask1 {
+
+    static constexpr int kBlockN = kBlockN_;
+    static constexpr int BYTES_PER_ELEMENT = 2;
+
+    // Ctor.
+    template<typename Params>
+    inline __device__ Gmem_tile_kv_llm_mask1(void *ptr_, const Params &params, const int tidx, int batch_offset, const int group_id, const int seq_length_, const int bidh)
+        : row_stride(params.k_row_stride)
+        , ptr(reinterpret_cast<char *>(ptr_))
+        , token_increment(tidx / 8)
+        , group_num(params.group_num)
+        , seq_length(seq_length_)
+        , dim_increment((tidx % 8) * 8) {
+        
+        gourp_offset = group_id * group_num * row_stride;
+        ptr += (uint32_t)(batch_offset + params.d * bidh) * BYTES_PER_ELEMENT;
+    }
+
+    template <typename Engine, typename Layout>
+    inline __device__ void load(int n_block, Tensor<Engine, Layout> &D) {
+        const char *new_ptr;
+
+        int ingroup_offset = n_block * kBlockN + token_increment;
+        // 1024 = 256 * 4 | only work for group_num = 16 since single load if 4 time of 256
+        int real_offset = n_block * 1024 + token_increment;
+        new_ptr = ptr + (uint32_t)(real_offset * row_stride + dim_increment + gourp_offset) * BYTES_PER_ELEMENT;
+        cute::custom_copy_kv(new_ptr, D, 0);
+
+        ingroup_offset += 16;
+        // 256 = 16 * 16 only for group_num = 16
+        real_offset += 256;
+        if (ingroup_offset < seq_length){
+            new_ptr = ptr + (uint32_t)(real_offset * row_stride + dim_increment + gourp_offset) * BYTES_PER_ELEMENT;
+            cute::custom_copy_kv(new_ptr, D, 1);
+        }
+
+        ingroup_offset += 16;
+        real_offset += 256;
+        if (ingroup_offset < seq_length){
+            new_ptr = ptr + (uint32_t)(real_offset * row_stride + dim_increment + gourp_offset) * BYTES_PER_ELEMENT;
+            cute::custom_copy_kv(new_ptr, D, 2);
+        }
+
+        ingroup_offset += 16;
+        real_offset += 256;
+        if (ingroup_offset < seq_length){
+            new_ptr = ptr + (uint32_t)(real_offset * row_stride + dim_increment + gourp_offset) * BYTES_PER_ELEMENT;
+            cute::custom_copy_kv(new_ptr, D, 3);
+        }
+
+        cute::cp_async_fence();
+    }
+
+    const uint32_t row_stride;
+    const int group_num;
+    const int token_increment;
+    const int dim_increment;
+    int gourp_offset;
+    int seq_length;
+
+    // The pointer.
+    char *ptr;
+
+};
+
+
+
+template<
+    int kBlockM_
+>
+struct Gmem_tile_qo_llm_mask0 {
+    static constexpr int kBlockM = kBlockM_;
+    static constexpr int BYTES_PER_ELEMENT = 2;
+
+    // Ctor.
+    template<typename Params>
+    inline __device__ Gmem_tile_qo_llm_mask0(void *ptr_, const Params &params, const int tidx, int batch_offset, const int group_id, const int seq_length_, const int bidh)
+        : row_stride(params.q_row_stride)
+        , ptr(reinterpret_cast<char *>(ptr_))
+        , token_increment(tidx / 8)
+        , group_num(params.group_num)
+        , seq_length(seq_length_)
+        , dim_increment((tidx % 8) * 8) {
+        
+        gourp_offset = group_id * row_stride;
+        ptr += (uint32_t)(batch_offset + params.d * bidh) * BYTES_PER_ELEMENT;
+    }
+
+    template <typename Engine, typename Layout>
+    inline __device__ void load(int m_block, Tensor<Engine, Layout> &D) {
+        const char *new_ptr;
+
+        int token_offset = m_block * kBlockM + token_increment;
+        if (token_offset < seq_length){
+            new_ptr = ptr + (uint32_t)(token_offset * group_num * row_stride + dim_increment + gourp_offset) * BYTES_PER_ELEMENT;
+            cute::custom_copy_qo(new_ptr, D, 0);
+        }
+
+        token_offset += 16;
+        if (token_offset < seq_length){
+            new_ptr = ptr + (uint32_t)(token_offset * group_num * row_stride + dim_increment + gourp_offset) * BYTES_PER_ELEMENT;
+            cute::custom_copy_kv(new_ptr, D, 1);
+        }
+
+        token_offset += 16;
+        if (token_offset < seq_length){
+            new_ptr = ptr + (uint32_t)(token_offset * group_num * row_stride + dim_increment + gourp_offset) * BYTES_PER_ELEMENT;
+            cute::custom_copy_kv(new_ptr, D, 2);
+        }
+
+        token_offset += 16;
+        if (token_offset < seq_length){
+            new_ptr = ptr + (uint32_t)(token_offset * group_num * row_stride + dim_increment + gourp_offset) * BYTES_PER_ELEMENT;
+            cute::custom_copy_kv(new_ptr, D, 3);
+        }
+
+        cute::cp_async_fence();
+    }
+
+
+    template <typename Engine, typename Layout>
+    inline __device__ void store(int m_block, Tensor<Engine, Layout> &S) {
+        char *new_ptr;
+
+        int token_offset = m_block * kBlockM + token_increment;
+        if (token_offset < seq_length){
+            new_ptr = ptr + (uint32_t)(token_offset * group_num * row_stride + dim_increment + gourp_offset) * BYTES_PER_ELEMENT;
+            cute::custom_copy_o_r2g(S, new_ptr, 0);
+        }
+
+        #pragma unroll
+        for (int i=1; i<4; i++){
+            token_offset += 16;
+
+            if (token_offset < seq_length){
+                new_ptr = ptr + (uint32_t)(token_offset * group_num * row_stride + dim_increment + gourp_offset) * BYTES_PER_ELEMENT;
+                cute::custom_copy_o_r2g(S, new_ptr, i*8);
+            }
+            
+        }
+
+        cute::cp_async_fence();
+    }
+
+    const uint32_t row_stride;
+    const int group_num;
+    const int token_increment;
+    const int dim_increment;
+    int gourp_offset;
+    int seq_length;
+
+    // The pointer.
+    char *ptr;
+
+};
+
+
+
+template<
+    int kBlockM_
+>
+struct Gmem_tile_qo_llm_mask1 {
+
+    static constexpr int kBlockM = kBlockM_;
+    static constexpr int BYTES_PER_ELEMENT = 2;
+
+    // Ctor.
+    template<typename Params>
+    inline __device__ Gmem_tile_qo_llm_mask1(void *ptr_, const Params &params, const int tidx, int batch_offset, const int group_id, const int seq_length_, const int bidh)
+        : row_stride(params.q_row_stride)
+        , ptr(reinterpret_cast<char *>(ptr_))
+        , token_increment(tidx / 8)
+        , group_num(params.group_num)
+        , seq_length(seq_length_)
+        , dim_increment((tidx % 8) * 8) {
+        
+        gourp_offset = group_id * group_num * row_stride;
+        ptr += (uint32_t)(batch_offset + params.d * bidh) * BYTES_PER_ELEMENT;
+    }
+
+    template <typename Engine, typename Layout>
+    inline __device__ void load(int m_block, Tensor<Engine, Layout> &D) {
+        const char *new_ptr;
+
+        int ingroup_offset = m_block * kBlockM + token_increment;
+        // 1024 = 256 * 4 | only work for group_num = 16 since single load if 4 time of 256
+        int real_offset = m_block * 1024 + token_increment;
+        new_ptr = ptr + (uint32_t)(real_offset * row_stride + dim_increment + gourp_offset) * BYTES_PER_ELEMENT;
+        cute::custom_copy_kv(new_ptr, D, 0);
+
+        ingroup_offset += 16;
+        // 256 = 16 * 16 only for group_num = 16
+        real_offset += 256;
+        if (ingroup_offset < seq_length){
+            new_ptr = ptr + (uint32_t)(real_offset * row_stride + dim_increment + gourp_offset) * BYTES_PER_ELEMENT;
+            cute::custom_copy_kv(new_ptr, D, 1);
+        }
+
+        ingroup_offset += 16;
+        real_offset += 256;
+        if (ingroup_offset < seq_length){
+            new_ptr = ptr + (uint32_t)(real_offset * row_stride + dim_increment + gourp_offset) * BYTES_PER_ELEMENT;
+            cute::custom_copy_kv(new_ptr, D, 2);
+        }
+
+        ingroup_offset += 16;
+        real_offset += 256;
+        if (ingroup_offset < seq_length){
+            new_ptr = ptr + (uint32_t)(real_offset * row_stride + dim_increment + gourp_offset) * BYTES_PER_ELEMENT;
+            cute::custom_copy_kv(new_ptr, D, 3);
+        }
+
+        cute::cp_async_fence();
+    }
+
+    template <typename Engine, typename Layout>
+    inline __device__ void store(int m_block, Tensor<Engine, Layout> &S) {
+        char *new_ptr;
+
+        int ingroup_offset = m_block * kBlockM + token_increment;
+        int real_offset = m_block * 1024 + token_increment;
+        if (ingroup_offset < seq_length){
+            new_ptr = ptr + (uint32_t)(real_offset * row_stride + dim_increment + gourp_offset) * BYTES_PER_ELEMENT;
+            cute::custom_copy_o_r2g(S, new_ptr, 0);
+        }
+
+        #pragma unroll
+        for (int i=1; i<4; i++){
+            ingroup_offset += 16;
+            real_offset += 256;
+
+            if (ingroup_offset < seq_length){
+                new_ptr = ptr + (uint32_t)(real_offset * row_stride + dim_increment + gourp_offset) * BYTES_PER_ELEMENT;
+                cute::custom_copy_o_r2g(S, new_ptr, i*8);
+            }
+            
+        }
+
+        cute::cp_async_fence();
+    }
+
+
+    const uint32_t row_stride;
+    const int group_num;
+    const int token_increment;
+    const int dim_increment;
+    int gourp_offset;
+    int seq_length;
+
+    // The pointer.
+    char *ptr;
+
+};
+
+
+
+////////////////////////////////// 8 Groups /////////////////////////////////////////
+
+
+
+
 ////////////////////////////////// Sliding Window Loader /////////////////////////////////////////
 
 template<

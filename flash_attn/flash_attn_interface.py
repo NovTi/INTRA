@@ -73,6 +73,44 @@ else:
     _torch_register_fake_wrapper = noop_register_fake_wrapper
 
 
+# @_torch_custom_op_wrapper("flash_attn::_flash_attn_forward", mutates_args=(), device_types="cuda")
+# def _flash_attn_forward(
+#     q: torch.Tensor,
+#     k: torch.Tensor,
+#     v: torch.Tensor,
+#     dropout_p: float,
+#     softmax_scale: float,
+#     causal: bool,
+#     window_size_left: int,
+#     window_size_right: int,
+#     softcap: float,
+#     alibi_slopes: Optional[torch.Tensor],
+#     return_softmax: bool,
+#     mask = 0,
+#     width = -1,
+#     length = -1,
+# ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+#     q, k, v = [maybe_contiguous(x) for x in (q, k, v)]    
+#     out, softmax_lse, S_dmask, rng_state = flash_attn_cuda.fwd(
+#         q,
+#         k,
+#         v,
+#         None,
+#         alibi_slopes,
+#         dropout_p,
+#         softmax_scale,
+#         causal,
+#         window_size_left,
+#         window_size_right,
+#         softcap,
+#         return_softmax,
+#         None,
+#         mask,
+#         width,
+#         length,
+#     )
+#     return out, softmax_lse, S_dmask, rng_state
+
 @_torch_custom_op_wrapper("flash_attn::_flash_attn_forward", mutates_args=(), device_types="cuda")
 def _flash_attn_forward(
     q: torch.Tensor,
@@ -91,7 +129,7 @@ def _flash_attn_forward(
     length = -1,
 ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
     q, k, v = [maybe_contiguous(x) for x in (q, k, v)]    
-    out, softmax_lse, S_dmask, rng_state = flash_attn_cuda.fwd(
+    out, softmax_lse, S_dmask, rng_state = flash_attn_cuda.fwd_llm(
         q,
         k,
         v,
@@ -106,10 +144,10 @@ def _flash_attn_forward(
         return_softmax,
         None,
         mask,
-        width,
-        length,
+        16
     )
     return out, softmax_lse, S_dmask, rng_state
+
 
 
 @_torch_register_fake_wrapper("flash_attn::_flash_attn_forward")

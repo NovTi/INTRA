@@ -101,6 +101,17 @@
     }                                      \
   }()
 
+#define MASK_SWITCH_LLM(MASK, ...)   \
+  [&] {                                    \
+    if (MASK == 0) {                       \
+      constexpr static int mask = 0;       \
+      return __VA_ARGS__();                \
+    } else if (MASK == 1) {                \
+      constexpr static int mask = 1;       \
+      return __VA_ARGS__();                \
+    }                                      \
+  }()
+
 #define WIDTH_SWITCH(WIDTH, ...)   \
   [&] {                                    \
     if (WIDTH == 64) {                     \

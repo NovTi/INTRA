@@ -155,6 +155,8 @@ struct Flash_fwd_params : public Qkv_params {
     int group_num;
     int increment_groups; // for groups that has one more token to attend
     int special_group_increment;
+    int max_seqlen_q;
+    int org_seqlen_k;
 };
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////

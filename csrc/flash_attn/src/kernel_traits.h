@@ -245,25 +245,75 @@ struct Flash_fwd_kernel_traits_llm : public Base {
 
     static constexpr int maskType = maskType_;
 
+    // using Gmem_tile_k = std::conditional_t<
+    //     maskType == 0,
+    //     flash::Gmem_tile_kv_llm_mask0<kBlockN>,
+    //     flash::Gmem_tile_kv_llm_mask1<kBlockN>
+    // >;
+    // using Gmem_tile_v = std::conditional_t<
+    //     maskType == 0,
+    //     flash::Gmem_tile_kv_llm_mask0<kBlockN>,
+    //     flash::Gmem_tile_kv_llm_mask1<kBlockN>
+    // >;
+    // using Gmem_tile_q = std::conditional_t<
+    //     maskType == 0,
+    //     flash::Gmem_tile_qo_llm_mask0<kBlockM>,
+    //     flash::Gmem_tile_qo_llm_mask1<kBlockM>
+    // >;
+    // using Gmem_tile_o = std::conditional_t<
+    //     maskType == 0,
+    //     flash::Gmem_tile_qo_llm_mask0<kBlockM>,
+    //     flash::Gmem_tile_qo_llm_mask1<kBlockM>
+    // >;
+
+    // using Gmem_tile_k = std::conditional_t<
+    //     maskType == 0,
+    //     flash::Gmem_tile_kv_llm_mask0<kBlockN>,
+    //     flash::Gmem_tile_kv_llm_mask1_8groups<kBlockN>
+    // >;
+    // using Gmem_tile_v = std::conditional_t<
+    //     maskType == 0,
+    //     flash::Gmem_tile_kv_llm_mask0<kBlockN>,
+    //     flash::Gmem_tile_kv_llm_mask1_8groups<kBlockN>
+    // >;
+    // using Gmem_tile_q = std::conditional_t<
+    //     maskType == 0,
+    //     flash::Gmem_tile_qo_llm_mask0<kBlockM>,
+    //     flash::Gmem_tile_qo_llm_mask1_8groups<kBlockM>
+    // >;
+    // using Gmem_tile_o = std::conditional_t<
+    //     maskType == 0,
+    //     flash::Gmem_tile_qo_llm_mask0<kBlockM>,
+    //     flash::Gmem_tile_qo_llm_mask1_8groups<kBlockM>
+    // >;
+
     using Gmem_tile_k = std::conditional_t<
         maskType == 0,
         flash::Gmem_tile_kv_llm_mask0<kBlockN>,
-        flash::Gmem_tile_kv_llm_mask1<kBlockN>
+        std::conditional_t<maskType == 1,
+                           flash::Gmem_tile_kv_llm_mask1_8groups<kBlockN>,
+                           flash::Gmem_tile_kv_llm_sw<kBlockN>>
     >;
     using Gmem_tile_v = std::conditional_t<
         maskType == 0,
         flash::Gmem_tile_kv_llm_mask0<kBlockN>,
-        flash::Gmem_tile_kv_llm_mask1<kBlockN>
+        std::conditional_t<maskType == 1,
+                           flash::Gmem_tile_kv_llm_mask1_8groups<kBlockN>,
+                           flash::Gmem_tile_kv_llm_sw<kBlockN>>
     >;
     using Gmem_tile_q = std::conditional_t<
         maskType == 0,
         flash::Gmem_tile_qo_llm_mask0<kBlockM>,
-        flash::Gmem_tile_qo_llm_mask1<kBlockM>
+        std::conditional_t<maskType == 1,
+                           flash::Gmem_tile_qo_llm_mask1_8groups<kBlockM>,
+                           flash::Gmem_tile_qo_llm_sw<kBlockM>>
     >;
     using Gmem_tile_o = std::conditional_t<
         maskType == 0,
         flash::Gmem_tile_qo_llm_mask0<kBlockM>,
-        flash::Gmem_tile_qo_llm_mask1<kBlockM>
+        std::conditional_t<maskType == 1,
+                           flash::Gmem_tile_qo_llm_mask1_8groups<kBlockM>,
+                           flash::Gmem_tile_qo_llm_sw<kBlockM>>
     >;
 
     using TiledMma = TiledMMA<

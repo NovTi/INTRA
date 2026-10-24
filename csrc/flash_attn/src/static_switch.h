@@ -109,6 +109,9 @@
     } else if (MASK == 1) {                \
       constexpr static int mask = 1;       \
       return __VA_ARGS__();                \
+    } else if (MASK == 4) {                \
+      constexpr static int mask = 4;       \
+      return __VA_ARGS__();                \
     }                                      \
   }()
 
@@ -117,17 +120,20 @@
     if (WIDTH == 64) {                     \
       constexpr static int width = 64;     \
       return __VA_ARGS__();                \
+    } else if (WIDTH == 128) {             \
+      constexpr static int width = 128;    \
+      return __VA_ARGS__();                \
     }                                      \
   }()
 
 
 // #define WIDTH_SWITCH(WIDTH, ...)   \
 //   [&] {                                    \
-//     if (WIDTH == 32) {                     \
-//       constexpr static int width = 32;     \
-//       return __VA_ARGS__();                \
-//     } else if (WIDTH == 64) {              \
+//     if (WIDTH == 64) {                     \
 //       constexpr static int width = 64;     \
+//       return __VA_ARGS__();                \
+//     } else if (WIDTH == 128) {              \
+//       constexpr static int width = 128;     \
 //       return __VA_ARGS__();                \
 //     }                                      \
 //   }()

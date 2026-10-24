@@ -1,0 +1,381 @@
+{
+ "env": {
+  "gpu": "NVIDIA A100-SXM4-80GB",
+  "sm": "sm80",
+  "torch": "2.11.0+cu129",
+  "cuda": "12.9",
+  "cudnn": 91701
+ },
+ "grids": {
+  "480p_49f": {
+   "frames": 49,
+   "height": 480,
+   "width": 832,
+   "grid": [
+    13,
+    15,
+    26
+   ],
+   "N": 5070,
+   "dense": {
+    "sdpa_flash": {
+     "median_ms": 1.64409601688385,
+     "min_ms": 1.6335680484771729,
+     "max_ms": 1.686784029006958,
+     "iters": 20,
+     "kernels": [
+      "void pytorch_flash::flash_fwd_kernel<Flash_fwd_kernel_traits<128, 128, 64, 4, false, false"
+     ]
+    },
+    "sdpa_cudnn": {
+     "median_ms": 1.78329598903656,
+     "min_ms": 1.7777279615402222,
+     "max_ms": 3.098144054412842,
+     "iters": 20,
+     "kernels": [
+      "cudnn_generated_fort_native_sdpa_sm80_flash_fprop_wmma_f16_knob_3_64x64x128_4x1x1_cga1x1x1"
+     ]
+    },
+    "sdpa_efficient": {
+     "median_ms": 2.9824159145355225,
+     "min_ms": 2.971328020095825,
+     "max_ms": 3.004960060119629,
+     "iters": 20,
+     "kernels": [
+      "fmha_cutlassF_bf16_aligned_64x128_rf_sm80(PyTorchMemEffAttention::AttentionKernel<cutlass:"
+     ]
+    },
+    "fa2_raw": {
+     "median_ms": 1.644703984260559,
+     "min_ms": 1.6303679943084717,
+     "max_ms": 1.651360034942627,
+     "iters": 20,
+     "kernels": [
+      "void pytorch_flash::flash_fwd_kernel<Flash_fwd_kernel_traits<128, 128, 64, 4, false, false"
+     ]
+    }
+   },
+   "intra": {
+    "L1:gather0": {
+     "median_ms": 0.5456160008907318,
+     "min_ms": 0.5418239831924438,
+     "max_ms": 0.5547839999198914,
+     "iters": 20,
+     "kernels": [
+      "void pytorch_flash::flash_fwd_kernel<Flash_fwd_kernel_traits<128, 128, 64, 4, false, false",
+      "void at::native::vectorized_gather_kernel<16, long>(char*, char*, long*, int, long, long, "
+     ],
+     "density": 0.16666666666666666,
+     "attn_only_ms": 0.3739839941263199,
+     "n_groups": 6,
+     "max_group": 845
+    },
+    "L2:scatter": {
+     "median_ms": 0.5411039888858795,
+     "min_ms": 0.5235199928283691,
+     "max_ms": 0.5542719960212708,
+     "iters": 20,
+     "kernels": [
+      "void pytorch_flash::flash_fwd_kernel<Flash_fwd_kernel_traits<128, 128, 64, 4, false, false",
+      "void at::native::vectorized_gather_kernel<16, long>(char*, char*, long*, int, long, long, "
+     ],
+     "density": 0.12666666666666668,
+     "attn_only_ms": 0.33607999980449677,
+     "n_groups": 8,
+     "max_group": 676
+    },
+    "L3:gather-shift": {
+     "median_ms": 0.5983360111713409,
+     "min_ms": 0.5646399855613708,
+     "max_ms": 0.6215360164642334,
+     "iters": 20,
+     "kernels": [
+      "void pytorch_flash::flash_fwd_kernel<Flash_fwd_kernel_traits<128, 128, 64, 4, false, false",
+      "void at::native::vectorized_gather_kernel<16, long>(char*, char*, long*, int, long, long, "
+     ],
+     "density": 0.16666666666666666,
+     "attn_only_ms": 0.39816001057624817,
+     "n_groups": 6,
+     "max_group": 845
+    },
+    "L4:cone": {
+     "median_ms": 1.4517759680747986,
+     "min_ms": 1.4389439821243286,
+     "max_ms": 1.4896320104599,
+     "iters": 20,
+     "kernels": [
+      "void pytorch_flash::flash_fwd_kernel<Flash_fwd_kernel_traits<128, 128, 64, 4, false, false"
+     ],
+     "density": 0.6211803975117585,
+     "window_R": 1949
+    },
+    "L0:scatter": {
+     "median_ms": 0.5151679813861847,
+     "min_ms": 0.48236799240112305,
+     "max_ms": 0.5335040092468262,
+     "iters": 20,
+     "kernels": [
+      "void pytorch_flash::flash_fwd_kernel<Flash_fwd_kernel_traits<128, 128, 64, 4, false, false",
+      "void at::native::vectorized_gather_kernel<16, long>(char*, char*, long*, int, long, long, "
+     ],
+     "density": 0.12629848783694939,
+     "attn_only_ms": 0.3213440030813217,
+     "n_groups": 8,
+     "max_group": 728
+    }
+   },
+   "dense_best": "sdpa_flash",
+   "stack": {
+    "dense_ms": 49.3228805065155,
+    "intra_ms": 23.23324778676033,
+    "speedup": 2.1229438500898086,
+    "density": 0.2832464808914513,
+    "ideal_speedup": 3.53049399538076
+   }
+  },
+  "720p_121f": {
+   "frames": 121,
+   "height": 704,
+   "width": 1280,
+   "grid": [
+    31,
+    22,
+    40
+   ],
+   "N": 27280,
+   "dense": {
+    "sdpa_flash": {
+     "median_ms": 47.4204158782959,
+     "min_ms": 47.21491241455078,
+     "max_ms": 48.912254333496094,
+     "iters": 20,
+     "kernels": [
+      "void pytorch_flash::flash_fwd_kernel<Flash_fwd_kernel_traits<128, 128, 64, 4, false, false"
+     ]
+    },
+    "sdpa_cudnn": {
+     "median_ms": 50.67163276672363,
+     "min_ms": 50.6187858581543,
+     "max_ms": 51.830753326416016,
+     "iters": 20,
+     "kernels": [
+      "cudnn_generated_fort_native_sdpa_sm80_flash_fprop_wmma_f16_knob_3_64x64x128_4x1x1_cga1x1x1"
+     ]
+    },
+    "sdpa_efficient": {
+     "median_ms": 84.05838394165039,
+     "min_ms": 83.43740844726562,
+     "max_ms": 84.09932708740234,
+     "iters": 20,
+     "kernels": [
+      "fmha_cutlassF_bf16_aligned_64x128_rf_sm80(PyTorchMemEffAttention::AttentionKernel<cutlass:"
+     ]
+    },
+    "fa2_raw": {
+     "median_ms": 48.00692939758301,
+     "min_ms": 47.54140853881836,
+     "max_ms": 48.58291244506836,
+     "iters": 20,
+     "kernels": [
+      "void pytorch_flash::flash_fwd_kernel<Flash_fwd_kernel_traits<128, 128, 64, 4, false, false"
+     ]
+    }
+   },
+   "intra": {
+    "L1:gather0": {
+     "median_ms": 7.026496171951294,
+     "min_ms": 6.976064205169678,
+     "max_ms": 7.092383861541748,
+     "iters": 20,
+     "kernels": [
+      "void pytorch_flash::flash_fwd_kernel<Flash_fwd_kernel_traits<128, 128, 64, 4, false, false",
+      "void at::native::vectorized_gather_kernel<16, long>(char*, char*, long*, int, long, long, "
+     ],
+     "density": 0.125,
+     "attn_only_ms": 6.2992799282073975,
+     "n_groups": 8,
+     "max_group": 3410
+    },
+    "L2:scatter": {
+     "median_ms": 7.231359958648682,
+     "min_ms": 7.218560218811035,
+     "max_ms": 7.3787522315979,
+     "iters": 20,
+     "kernels": [
+      "void pytorch_flash::flash_fwd_kernel<Flash_fwd_kernel_traits<128, 128, 64, 4, false, false",
+      "void at::native::vectorized_gather_kernel<16, long>(char*, char*, long*, int, long, long, "
+     ],
+     "density": 0.12603305785123967,
+     "attn_only_ms": 6.524479866027832,
+     "n_groups": 8,
+     "max_group": 3720
+    },
+    "L3:gather-shift": {
+     "median_ms": 7.058912038803101,
+     "min_ms": 6.987584114074707,
+     "max_ms": 7.143680095672607,
+     "iters": 20,
+     "kernels": [
+      "void pytorch_flash::flash_fwd_kernel<Flash_fwd_kernel_traits<128, 128, 64, 4, false, false",
+      "void at::native::vectorized_gather_kernel<16, long>(char*, char*, long*, int, long, long, "
+     ],
+     "density": 0.125,
+     "attn_only_ms": 6.283200025558472,
+     "n_groups": 8,
+     "max_group": 3410
+    },
+    "L4:cone": {
+     "median_ms": 16.818191528320312,
+     "min_ms": 16.786752700805664,
+     "max_ms": 17.055936813354492,
+     "iters": 20,
+     "kernels": [
+      "void pytorch_flash::flash_fwd_kernel<Flash_fwd_kernel_traits<128, 128, 64, 4, false, false"
+     ],
+     "density": 0.29653533251348024,
+     "window_R": 4399
+    },
+    "L0:scatter": {
+     "median_ms": 7.053679943084717,
+     "min_ms": 6.943552017211914,
+     "max_ms": 7.0853118896484375,
+     "iters": 20,
+     "kernels": [
+      "void pytorch_flash::flash_fwd_kernel<Flash_fwd_kernel_traits<128, 128, 64, 4, false, false",
+      "void at::native::vectorized_gather_kernel<16, long>(char*, char*, long*, int, long, long, "
+     ],
+     "density": 0.125,
+     "attn_only_ms": 6.298255920410156,
+     "n_groups": 8,
+     "max_group": 3410
+    }
+   },
+   "dense_best": "sdpa_flash",
+   "stack": {
+    "dense_ms": 1422.612476348877,
+    "intra_ms": 342.1007981300354,
+    "speedup": 4.1584599747356625,
+    "density": 0.21212916698916132,
+    "ideal_speedup": 4.714108928033903
+   }
+  },
+  "720p_241f": {
+   "frames": 241,
+   "height": 704,
+   "width": 1280,
+   "grid": [
+    61,
+    22,
+    40
+   ],
+   "N": 53680,
+   "dense": {
+    "sdpa_flash": {
+     "median_ms": 184.25230407714844,
+     "min_ms": 183.2401580810547,
+     "max_ms": 187.5999755859375,
+     "iters": 20,
+     "kernels": [
+      "void pytorch_flash::flash_fwd_kernel<Flash_fwd_kernel_traits<128, 128, 64, 4, false, false"
+     ]
+    },
+    "sdpa_cudnn": {
+     "median_ms": 196.97834014892578,
+     "min_ms": 196.05850219726562,
+     "max_ms": 198.7136993408203,
+     "iters": 20,
+     "kernels": []
+    },
+    "sdpa_efficient": {
+     "median_ms": 326.7107238769531,
+     "min_ms": 326.26788330078125,
+     "max_ms": 327.1434631347656,
+     "iters": 20,
+     "kernels": []
+    },
+    "fa2_raw": {
+     "median_ms": 185.79334259033203,
+     "min_ms": 185.2845458984375,
+     "max_ms": 186.9417266845703,
+     "iters": 20,
+     "kernels": []
+    }
+   },
+   "intra": {
+    "L1:gather0": {
+     "median_ms": 25.46238422393799,
+     "min_ms": 25.220767974853516,
+     "max_ms": 25.551103591918945,
+     "iters": 20,
+     "kernels": [
+      "void pytorch_flash::flash_fwd_kernel<Flash_fwd_kernel_traits<128, 128, 64, 4, false, false",
+      "void at::native::vectorized_gather_kernel<16, long>(char*, char*, long*, int, long, long, "
+     ],
+     "density": 0.125,
+     "attn_only_ms": 23.846192359924316,
+     "n_groups": 8,
+     "max_group": 6710
+    },
+    "L2:scatter": {
+     "median_ms": 25.534560203552246,
+     "min_ms": 25.429759979248047,
+     "max_ms": 25.77110481262207,
+     "iters": 20,
+     "kernels": [
+      "void pytorch_flash::flash_fwd_kernel<Flash_fwd_kernel_traits<128, 128, 64, 4, false, false",
+      "void at::native::vectorized_gather_kernel<16, long>(char*, char*, long*, int, long, long, "
+     ],
+     "density": 0.12603305785123967,
+     "attn_only_ms": 24.091344833374023,
+     "n_groups": 8,
+     "max_group": 7320
+    },
+    "L3:gather-shift": {
+     "median_ms": 25.329279899597168,
+     "min_ms": 25.20707130432129,
+     "max_ms": 25.534975051879883,
+     "iters": 20,
+     "kernels": [
+      "void pytorch_flash::flash_fwd_kernel<Flash_fwd_kernel_traits<128, 128, 64, 4, false, false",
+      "void at::native::vectorized_gather_kernel<16, long>(char*, char*, long*, int, long, long, "
+     ],
+     "density": 0.125,
+     "attn_only_ms": 23.838831901550293,
+     "n_groups": 8,
+     "max_group": 6710
+    },
+    "L4:cone": {
+     "median_ms": 34.97316932678223,
+     "min_ms": 34.581153869628906,
+     "max_ms": 35.04947280883789,
+     "iters": 20,
+     "kernels": [],
+     "density": 0.157198700251643,
+     "window_R": 4399
+    },
+    "L0:scatter": {
+     "median_ms": 25.493168830871582,
+     "min_ms": 25.249311447143555,
+     "max_ms": 25.543807983398438,
+     "iters": 20,
+     "kernels": [
+      "void pytorch_flash::flash_fwd_kernel<Flash_fwd_kernel_traits<128, 128, 64, 4, false, false",
+      "void at::native::vectorized_gather_kernel<16, long>(char*, char*, long*, int, long, long, "
+     ],
+     "density": 0.125,
+     "attn_only_ms": 23.837759971618652,
+     "n_groups": 8,
+     "max_group": 6710
+    }
+   },
+   "dense_best": "sdpa_flash",
+   "stack": {
+    "dense_ms": 5527.569122314453,
+    "intra_ms": 1128.7936449050903,
+    "speedup": 4.896881859021464,
+    "density": 0.18890639494552178,
+    "ideal_speedup": 5.293627038345565
+   }
+  }
+ }
+}

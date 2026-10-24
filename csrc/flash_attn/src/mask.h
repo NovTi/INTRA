@@ -142,6 +142,15 @@ struct Mask {
             static constexpr bool Col_idx_only = !(Has_alibi && !Is_causal) && !Is_local && !Causal_mask;
             const int lane_id = threadIdx.x % 32;
             const int col_idx_offset = col_idx_offset_ + (lane_id % 4) * 2;
+
+            // if (blockIdx.x == 9 && blockIdx.y == 0 && blockIdx.z == 0 && threadIdx.x == 0) {
+            //     printf(
+            //         "col_idx_offset = %d, row_idx_offset = %d, warp_row_stride = %d | Col_idx_only: %d | window_size_right: %d | max_seqlen_k: %d | max_seqlen_q: %d\n",
+            //         col_idx_offset_, row_idx_offset, warp_row_stride, Col_idx_only, window_size_right, max_seqlen_k, max_seqlen_q
+            //     );
+            //     cute::print_tensor(tensor);
+            // }
+
             if constexpr (Col_idx_only) {
                 #pragma unroll
                 for (int nj = 0; nj < size<1, 1>(tensor); ++nj) {
@@ -184,6 +193,21 @@ struct Mask {
 
                                     }
                                 }
+
+                                // if(blockIdx.x == 9 && blockIdx.y == 0 && blockIdx.z == 0 && threadIdx.x == 0) {
+                                //     printf(
+                                //         "mi = %d | row_idx %d | i: %d | col_idx_limit_left: %d | col_idx_limit_right: %d | col_idx_base: %d | nj: %d | col_idx: %d | j: %d\n",
+                                //         mi, row_idx, i, col_idx_limit_left, col_idx_limit_right, col_idx_base, nj, col_idx, j
+                                //     );
+
+                                //     // printf(
+                                //     //     "mi = %d | row_idx %d | i: %d | col_idx_limit_left: %d | col_idx_limit_right: %d | col_idx_base: %d | nj: %d | col_idx: %d | j: %d | Causal_mask: %d\n",
+                                //     //     mi, row_idx, i, col_idx_limit_left, col_idx_limit_right, col_idx_base, nj, col_idx, j, Causal_mask
+                                //     // );
+
+                                //     // cute::print_tensor(tensor(make_coord(i, mi), make_coord(j, nj)));
+                                // }
+
                                 if constexpr (Causal_mask) {
                                     if (col_idx >= col_idx_limit_right) {
                                         tensor(make_coord(i, mi), make_coord(j, nj)) = -INFINITY;
@@ -204,6 +228,10 @@ struct Mask {
                         }
                     }
                 }
+
+                // if(blockIdx.x == 9 && blockIdx.y == 0 && blockIdx.z == 0 && threadIdx.x == 0){
+                //     cute::print_tensor(tensor);
+                // }
             }
         }
     };
@@ -211,3 +239,136 @@ struct Mask {
 };
 
 } // namespace flash
+
+
+// ptr[32b](0x7fb72bfffba0) o ((_2,_1),(_2,_8)):((_2,_0),(_1,_4)):
+//   6.80e-03 -2.56e+00 -2.26e+01  6.68e+00 -1.08e+01 -4.03e+00 -1.66e+01  1.20e+01  7.28e+00 -6.71e+00 -8.72e+00 -4.61e-02 -1.57e+00  3.81e-01 -7.30e+00 -3.06e+00
+//   1.07e+01 -9.91e+00 -1.32e+01 -1.00e+01  7.07e-01 -2.16e+01 -9.35e+00 -2.11e-01 -1.02e+01 -6.88e+00 -1.78e+00  1.37e+01 -2.19e+01 -1.06e+00 -7.25e+00  1.48e+01
+
+// ptr[32b](0x7fb72bfffba0) o ((_2,_1),(_2,_8)):((_2,_0),(_1,_4)):
+//   6.80e-03 -2.56e+00 -2.26e+01  6.68e+00 -1.08e+01 -4.03e+00 -1.66e+01  1.20e+01  7.28e+00 -6.71e+00 -8.72e+00 -4.61e-02 -1.57e+00  3.81e-01 -7.30e+00 -3.06e+00
+//   1.07e+01 -9.91e+00 -1.32e+01 -1.00e+01  7.07e-01 -2.16e+01 -9.35e+00 -2.11e-01 -1.02e+01 -6.88e+00 -1.78e+00  1.37e+01 -2.19e+01 -1.06e+00 -7.25e+00  1.48e+01
+
+// ptr[32b](0x7fb72bfffba0) o ((_2,_1),(_2,_8)):((_2,_0),(_1,_4)):
+//       -inf -2.56e+00 -2.26e+01  6.68e+00 -1.08e+01 -4.03e+00 -1.66e+01  1.20e+01  7.28e+00 -6.71e+00 -8.72e+00 -4.61e-02 -1.57e+00  3.81e-01 -7.30e+00 -3.06e+00
+//   1.07e+01 -9.91e+00 -1.32e+01 -1.00e+01  7.07e-01 -2.16e+01 -9.35e+00 -2.11e-01 -1.02e+01 -6.88e+00 -1.78e+00  1.37e+01 -2.19e+01 -1.06e+00 -7.25e+00  1.48e+01
+
+// ptr[32b](0x7fb72bfffba0) o ((_2,_1),(_2,_8)):((_2,_0),(_1,_4)):
+//       -inf      -inf -2.26e+01  6.68e+00 -1.08e+01 -4.03e+00 -1.66e+01  1.20e+01  7.28e+00 -6.71e+00 -8.72e+00 -4.61e-02 -1.57e+00  3.81e-01 -7.30e+00 -3.06e+00
+//   1.07e+01 -9.91e+00 -1.32e+01 -1.00e+01  7.07e-01 -2.16e+01 -9.35e+00 -2.11e-01 -1.02e+01 -6.88e+00 -1.78e+00  1.37e+01 -2.19e+01 -1.06e+00 -7.25e+00  1.48e+01
+
+// ptr[32b](0x7fb72bfffba0) o ((_2,_1),(_2,_8)):((_2,_0),(_1,_4)):
+//       -inf      -inf      -inf  6.68e+00 -1.08e+01 -4.03e+00 -1.66e+01  1.20e+01  7.28e+00 -6.71e+00 -8.72e+00 -4.61e-02 -1.57e+00  3.81e-01 -7.30e+00 -3.06e+00
+//   1.07e+01 -9.91e+00 -1.32e+01 -1.00e+01  7.07e-01 -2.16e+01 -9.35e+00 -2.11e-01 -1.02e+01 -6.88e+00 -1.78e+00  1.37e+01 -2.19e+01 -1.06e+00 -7.25e+00  1.48e+01
+
+// ptr[32b](0x7fb72bfffba0) o ((_2,_1),(_2,_8)):((_2,_0),(_1,_4)):
+//       -inf      -inf      -inf      -inf -1.08e+01 -4.03e+00 -1.66e+01  1.20e+01  7.28e+00 -6.71e+00 -8.72e+00 -4.61e-02 -1.57e+00  3.81e-01 -7.30e+00 -3.06e+00
+//   1.07e+01 -9.91e+00 -1.32e+01 -1.00e+01  7.07e-01 -2.16e+01 -9.35e+00 -2.11e-01 -1.02e+01 -6.88e+00 -1.78e+00  1.37e+01 -2.19e+01 -1.06e+00 -7.25e+00  1.48e+01
+
+// ptr[32b](0x7fb72bfffba0) o ((_2,_1),(_2,_8)):((_2,_0),(_1,_4)):
+//       -inf      -inf      -inf      -inf      -inf -4.03e+00 -1.66e+01  1.20e+01  7.28e+00 -6.71e+00 -8.72e+00 -4.61e-02 -1.57e+00  3.81e-01 -7.30e+00 -3.06e+00
+//   1.07e+01 -9.91e+00 -1.32e+01 -1.00e+01  7.07e-01 -2.16e+01 -9.35e+00 -2.11e-01 -1.02e+01 -6.88e+00 -1.78e+00  1.37e+01 -2.19e+01 -1.06e+00 -7.25e+00  1.48e+01
+
+// ptr[32b](0x7fb72bfffba0) o ((_2,_1),(_2,_8)):((_2,_0),(_1,_4)):
+//       -inf      -inf      -inf      -inf      -inf      -inf -1.66e+01  1.20e+01  7.28e+00 -6.71e+00 -8.72e+00 -4.61e-02 -1.57e+00  3.81e-01 -7.30e+00 -3.06e+00
+//   1.07e+01 -9.91e+00 -1.32e+01 -1.00e+01  7.07e-01 -2.16e+01 -9.35e+00 -2.11e-01 -1.02e+01 -6.88e+00 -1.78e+00  1.37e+01 -2.19e+01 -1.06e+00 -7.25e+00  1.48e+01
+
+// ptr[32b](0x7fb72bfffba0) o ((_2,_1),(_2,_8)):((_2,_0),(_1,_4)):
+//       -inf      -inf      -inf      -inf      -inf      -inf      -inf  1.20e+01  7.28e+00 -6.71e+00 -8.72e+00 -4.61e-02 -1.57e+00  3.81e-01 -7.30e+00 -3.06e+00
+//   1.07e+01 -9.91e+00 -1.32e+01 -1.00e+01  7.07e-01 -2.16e+01 -9.35e+00 -2.11e-01 -1.02e+01 -6.88e+00 -1.78e+00  1.37e+01 -2.19e+01 -1.06e+00 -7.25e+00  1.48e+01
+
+// ptr[32b](0x7fb72bfffba0) o ((_2,_1),(_2,_8)):((_2,_0),(_1,_4)):
+//       -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf  7.28e+00 -6.71e+00 -8.72e+00 -4.61e-02 -1.57e+00  3.81e-01 -7.30e+00 -3.06e+00
+//   1.07e+01 -9.91e+00 -1.32e+01 -1.00e+01  7.07e-01 -2.16e+01 -9.35e+00 -2.11e-01 -1.02e+01 -6.88e+00 -1.78e+00  1.37e+01 -2.19e+01 -1.06e+00 -7.25e+00  1.48e+01
+
+// ptr[32b](0x7fb72bfffba0) o ((_2,_1),(_2,_8)):((_2,_0),(_1,_4)):
+//       -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf -6.71e+00 -8.72e+00 -4.61e-02 -1.57e+00  3.81e-01 -7.30e+00 -3.06e+00
+//   1.07e+01 -9.91e+00 -1.32e+01 -1.00e+01  7.07e-01 -2.16e+01 -9.35e+00 -2.11e-01 -1.02e+01 -6.88e+00 -1.78e+00  1.37e+01 -2.19e+01 -1.06e+00 -7.25e+00  1.48e+01
+
+// ptr[32b](0x7fb72bfffba0) o ((_2,_1),(_2,_8)):((_2,_0),(_1,_4)):
+//       -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf -8.72e+00 -4.61e-02 -1.57e+00  3.81e-01 -7.30e+00 -3.06e+00
+//   1.07e+01 -9.91e+00 -1.32e+01 -1.00e+01  7.07e-01 -2.16e+01 -9.35e+00 -2.11e-01 -1.02e+01 -6.88e+00 -1.78e+00  1.37e+01 -2.19e+01 -1.06e+00 -7.25e+00  1.48e+01
+
+// ptr[32b](0x7fb72bfffba0) o ((_2,_1),(_2,_8)):((_2,_0),(_1,_4)):
+//       -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf -4.61e-02 -1.57e+00  3.81e-01 -7.30e+00 -3.06e+00
+//   1.07e+01 -9.91e+00 -1.32e+01 -1.00e+01  7.07e-01 -2.16e+01 -9.35e+00 -2.11e-01 -1.02e+01 -6.88e+00 -1.78e+00  1.37e+01 -2.19e+01 -1.06e+00 -7.25e+00  1.48e+01
+
+// ptr[32b](0x7fb72bfffba0) o ((_2,_1),(_2,_8)):((_2,_0),(_1,_4)):
+//       -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf -1.57e+00  3.81e-01 -7.30e+00 -3.06e+00
+//   1.07e+01 -9.91e+00 -1.32e+01 -1.00e+01  7.07e-01 -2.16e+01 -9.35e+00 -2.11e-01 -1.02e+01 -6.88e+00 -1.78e+00  1.37e+01 -2.19e+01 -1.06e+00 -7.25e+00  1.48e+01
+
+// ptr[32b](0x7fb72bfffba0) o ((_2,_1),(_2,_8)):((_2,_0),(_1,_4)):
+//       -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf  3.81e-01 -7.30e+00 -3.06e+00
+//   1.07e+01 -9.91e+00 -1.32e+01 -1.00e+01  7.07e-01 -2.16e+01 -9.35e+00 -2.11e-01 -1.02e+01 -6.88e+00 -1.78e+00  1.37e+01 -2.19e+01 -1.06e+00 -7.25e+00  1.48e+01
+
+// ptr[32b](0x7fb72bfffba0) o ((_2,_1),(_2,_8)):((_2,_0),(_1,_4)):
+//       -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf -7.30e+00 -3.06e+00
+//   1.07e+01 -9.91e+00 -1.32e+01 -1.00e+01  7.07e-01 -2.16e+01 -9.35e+00 -2.11e-01 -1.02e+01 -6.88e+00 -1.78e+00  1.37e+01 -2.19e+01 -1.06e+00 -7.25e+00  1.48e+01
+
+// ptr[32b](0x7fb72bfffba0) o ((_2,_1),(_2,_8)):((_2,_0),(_1,_4)):
+//       -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf -3.06e+00
+//   1.07e+01 -9.91e+00 -1.32e+01 -1.00e+01  7.07e-01 -2.16e+01 -9.35e+00 -2.11e-01 -1.02e+01 -6.88e+00 -1.78e+00  1.37e+01 -2.19e+01 -1.06e+00 -7.25e+00  1.48e+01
+
+// ptr[32b](0x7fb72bfffba0) o ((_2,_1),(_2,_8)):((_2,_0),(_1,_4)):
+//       -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf
+//   1.07e+01 -9.91e+00 -1.32e+01 -1.00e+01  7.07e-01 -2.16e+01 -9.35e+00 -2.11e-01 -1.02e+01 -6.88e+00 -1.78e+00  1.37e+01 -2.19e+01 -1.06e+00 -7.25e+00  1.48e+01
+
+// ptr[32b](0x7fb72bfffba0) o ((_2,_1),(_2,_8)):((_2,_0),(_1,_4)):
+//       -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf
+//   1.07e+01 -9.91e+00 -1.32e+01 -1.00e+01  7.07e-01 -2.16e+01 -9.35e+00 -2.11e-01 -1.02e+01 -6.88e+00 -1.78e+00  1.37e+01 -2.19e+01 -1.06e+00 -7.25e+00  1.48e+01
+
+// ptr[32b](0x7fb72bfffba0) o ((_2,_1),(_2,_8)):((_2,_0),(_1,_4)):
+//       -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf
+//   1.07e+01 -9.91e+00 -1.32e+01 -1.00e+01  7.07e-01 -2.16e+01 -9.35e+00 -2.11e-01 -1.02e+01 -6.88e+00 -1.78e+00  1.37e+01 -2.19e+01 -1.06e+00 -7.25e+00  1.48e+01
+
+// ptr[32b](0x7fb72bfffba0) o ((_2,_1),(_2,_8)):((_2,_0),(_1,_4)):
+//       -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf
+//   1.07e+01 -9.91e+00      -inf -1.00e+01  7.07e-01 -2.16e+01 -9.35e+00 -2.11e-01 -1.02e+01 -6.88e+00 -1.78e+00  1.37e+01 -2.19e+01 -1.06e+00 -7.25e+00  1.48e+01
+
+// ptr[32b](0x7fb72bfffba0) o ((_2,_1),(_2,_8)):((_2,_0),(_1,_4)):
+//       -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf
+//   1.07e+01 -9.91e+00      -inf      -inf  7.07e-01 -2.16e+01 -9.35e+00 -2.11e-01 -1.02e+01 -6.88e+00 -1.78e+00  1.37e+01 -2.19e+01 -1.06e+00 -7.25e+00  1.48e+01
+
+// ptr[32b](0x7fb72bfffba0) o ((_2,_1),(_2,_8)):((_2,_0),(_1,_4)):
+//       -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf
+//   1.07e+01 -9.91e+00      -inf      -inf      -inf -2.16e+01 -9.35e+00 -2.11e-01 -1.02e+01 -6.88e+00 -1.78e+00  1.37e+01 -2.19e+01 -1.06e+00 -7.25e+00  1.48e+01
+
+// ptr[32b](0x7fb72bfffba0) o ((_2,_1),(_2,_8)):((_2,_0),(_1,_4)):
+//       -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf
+//   1.07e+01 -9.91e+00      -inf      -inf      -inf      -inf -9.35e+00 -2.11e-01 -1.02e+01 -6.88e+00 -1.78e+00  1.37e+01 -2.19e+01 -1.06e+00 -7.25e+00  1.48e+01
+
+// ptr[32b](0x7fb72bfffba0) o ((_2,_1),(_2,_8)):((_2,_0),(_1,_4)):
+//       -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf
+//   1.07e+01 -9.91e+00      -inf      -inf      -inf      -inf      -inf -2.11e-01 -1.02e+01 -6.88e+00 -1.78e+00  1.37e+01 -2.19e+01 -1.06e+00 -7.25e+00  1.48e+01
+
+// ptr[32b](0x7fb72bfffba0) o ((_2,_1),(_2,_8)):((_2,_0),(_1,_4)):
+//       -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf
+//   1.07e+01 -9.91e+00      -inf      -inf      -inf      -inf      -inf      -inf -1.02e+01 -6.88e+00 -1.78e+00  1.37e+01 -2.19e+01 -1.06e+00 -7.25e+00  1.48e+01
+
+// ptr[32b](0x7fb72bfffba0) o ((_2,_1),(_2,_8)):((_2,_0),(_1,_4)):
+//       -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf
+//   1.07e+01 -9.91e+00      -inf      -inf      -inf      -inf      -inf      -inf      -inf -6.88e+00 -1.78e+00  1.37e+01 -2.19e+01 -1.06e+00 -7.25e+00  1.48e+01
+
+// ptr[32b](0x7fb72bfffba0) o ((_2,_1),(_2,_8)):((_2,_0),(_1,_4)):
+//       -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf
+//   1.07e+01 -9.91e+00      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf -1.78e+00  1.37e+01 -2.19e+01 -1.06e+00 -7.25e+00  1.48e+01
+
+// ptr[32b](0x7fb72bfffba0) o ((_2,_1),(_2,_8)):((_2,_0),(_1,_4)):
+//       -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf
+//   1.07e+01 -9.91e+00      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf  1.37e+01 -2.19e+01 -1.06e+00 -7.25e+00  1.48e+01
+
+// ptr[32b](0x7fb72bfffba0) o ((_2,_1),(_2,_8)):((_2,_0),(_1,_4)):
+//       -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf
+//   1.07e+01 -9.91e+00      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf -2.19e+01 -1.06e+00 -7.25e+00  1.48e+01
+
+// ptr[32b](0x7fb72bfffba0) o ((_2,_1),(_2,_8)):((_2,_0),(_1,_4)):
+//       -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf
+//   1.07e+01 -9.91e+00      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf -1.06e+00 -7.25e+00  1.48e+01
+
+// ptr[32b](0x7fb72bfffba0) o ((_2,_1),(_2,_8)):((_2,_0),(_1,_4)):
+//       -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf
+//   1.07e+01 -9.91e+00      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf -7.25e+00  1.48e+01
+
+// ptr[32b](0x7fb72bfffba0) o ((_2,_1),(_2,_8)):((_2,_0),(_1,_4)):
+//       -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf
+//   1.07e+01 -9.91e+00      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf      -inf  1.48e+01

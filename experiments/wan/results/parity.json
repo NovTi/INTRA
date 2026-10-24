@@ -1,0 +1,114 @@
+{
+ "env": {
+  "gpu": "NVIDIA A100-SXM4-80GB",
+  "sm": "sm80",
+  "torch": "2.11.0+cu129",
+  "cuda": "12.9",
+  "cudnn": 91701
+ },
+ "results": [
+  {
+   "grid": "480p_49f",
+   "layer": 1,
+   "kind": "('gather', (0, 0))",
+   "err_fast_vs_fp32": 0.0011437833309173584,
+   "err_evaluated_vs_fp32": 0.006773337721824646,
+   "err_fast_vs_evaluated": 0.0068359375,
+   "ok": true
+  },
+  {
+   "grid": "480p_49f",
+   "layer": 2,
+   "kind": "('scatter', (4, 2))",
+   "err_fast_vs_fp32": 0.0016034245491027832,
+   "err_evaluated_vs_fp32": 0.007823050022125244,
+   "err_fast_vs_evaluated": 0.0078125,
+   "ok": true
+  },
+  {
+   "grid": "480p_49f",
+   "layer": 3,
+   "kind": "('gather', 'shift')",
+   "err_fast_vs_fp32": 0.0011568665504455566,
+   "err_evaluated_vs_fp32": 0.00765305757522583,
+   "err_fast_vs_evaluated": 0.0078125,
+   "ok": true
+  },
+  {
+   "grid": "480p_49f",
+   "layer": 4,
+   "kind": "('cone', 4)",
+   "err_fast_vs_fp32": 0.000675886869430542,
+   "err_evaluated_vs_fp32": 0.003370538353919983,
+   "err_fast_vs_evaluated": 0.0029296875,
+   "ok": true
+  },
+  {
+   "grid": "480p_49f",
+   "layer": 5,
+   "kind": "('scatter', (2, 4))",
+   "err_fast_vs_fp32": 0.0026421546936035156,
+   "err_evaluated_vs_fp32": 0.009076595306396484,
+   "err_fast_vs_evaluated": 0.01171875,
+   "ok": true
+  },
+  {
+   "grid": "480p_49f",
+   "layer": "dense",
+   "err_fa2_vs_sdpa": 0.0,
+   "ok": true
+  },
+  {
+   "grid": "720p_121f",
+   "layer": 1,
+   "kind": "('gather', (0, 0))",
+   "err_fast_vs_fp32": 0.000543549656867981,
+   "err_evaluated_vs_fp32": 0.003932252526283264,
+   "err_fast_vs_evaluated": 0.00390625,
+   "ok": true
+  },
+  {
+   "grid": "720p_121f",
+   "layer": 2,
+   "kind": "('scatter', (4, 2))",
+   "err_fast_vs_fp32": 0.0005515813827514648,
+   "err_evaluated_vs_fp32": 0.004407212138175964,
+   "err_fast_vs_evaluated": 0.00390625,
+   "ok": true
+  },
+  {
+   "grid": "720p_121f",
+   "layer": 3,
+   "kind": "('gather', 'shift')",
+   "err_fast_vs_fp32": 0.0005695372819900513,
+   "err_evaluated_vs_fp32": 0.003409460186958313,
+   "err_fast_vs_evaluated": 0.00341796875,
+   "ok": true
+  },
+  {
+   "grid": "720p_121f",
+   "layer": 4,
+   "kind": "('cone', 4)",
+   "err_fast_vs_fp32": 0.00038942694664001465,
+   "err_evaluated_vs_fp32": 0.0023377984762191772,
+   "err_fast_vs_evaluated": 0.00244140625,
+   "ok": true
+  },
+  {
+   "grid": "720p_121f",
+   "layer": 5,
+   "kind": "('scatter', (2, 4))",
+   "err_fast_vs_fp32": 0.0005687624216079712,
+   "err_evaluated_vs_fp32": 0.004016503691673279,
+   "err_fast_vs_evaluated": 0.00390625,
+   "ok": true
+  },
+  {
+   "grid": "720p_121f",
+   "layer": "dense",
+   "err_fa2_vs_sdpa": 0.0,
+   "ok": true
+  }
+ ],
+ "ok": true
+}

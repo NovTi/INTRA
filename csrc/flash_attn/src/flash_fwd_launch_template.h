@@ -112,6 +112,17 @@ DEFINE_FLASH_FORWARD_KERNEL(flash_fwd_kernel_16group_llm, bool Is_dropout, bool 
     #endif
 }
 
+DEFINE_FLASH_FORWARD_KERNEL(flash_fwd_kernel_sw_llm, bool Is_dropout, bool Is_causal, bool Is_local, bool Has_alibi, bool Is_even_MN, bool Is_even_K, bool Is_softcap, bool Return_softmax) {
+    #if defined(ARCH_SUPPORTS_FLASH)
+        static_assert(!(Is_causal && Is_local)); // Enforce constraints
+        
+        flash::compute_attn_sparse_sw_llm<Kernel_traits, Is_dropout, Is_causal, Is_local, Has_alibi, Is_even_MN, Is_even_K, Is_softcap, Return_softmax>(params);
+
+    #else
+        FLASH_UNSUPPORTED_ARCH
+    #endif
+}
+
 
 // DEFINE_FLASH_FORWARD_KERNEL(compute_attn_sparse_mask0_text_front_text, bool Is_dropout, bool Is_causal, bool Is_local, bool Has_alibi, bool Is_even_MN, bool Is_even_K, bool Is_softcap, bool Return_softmax) {
 //     #if defined(ARCH_SUPPORTS_FLASH)
@@ -471,12 +482,12 @@ void run_flash_fwd_sparse_mask0_8group_text_front(Flash_fwd_params &params, cuda
 }
 
 
-
 template<typename Kernel_traits, bool Is_dropout, bool Is_causal>
 void run_flash_fwd_sparse_16group_llm(Flash_fwd_params &params, cudaStream_t stream) {
     constexpr size_t smem_size = Kernel_traits::kSmemSize;
 
-    const int num_m_block = (params.seqlen_q + Kernel_traits::kBlockM - 1) / Kernel_traits::kBlockM;
+    // num_m_block is wrong, it should be the max of seqlen_q across groups
+    const int num_m_block = (params.max_seqlen_q + Kernel_traits::kBlockM - 1) / Kernel_traits::kBlockM;
     dim3 grid(num_m_block, params.b, params.h*params.group_num);
 
     const bool is_even_MN = params.cu_seqlens_q == nullptr && params.cu_seqlens_k == nullptr && params.seqlen_k % Kernel_traits::kBlockN == 0 && params.seqlen_q % Kernel_traits::kBlockM == 0;
@@ -512,6 +523,46 @@ void run_flash_fwd_sparse_16group_llm(Flash_fwd_params &params, cudaStream_t str
     });
 }
 
+
+template<typename Kernel_traits, bool Is_dropout, bool Is_causal>
+void run_flash_fwd_sparse_sw(Flash_fwd_params &params, cudaStream_t stream) {
+    constexpr size_t smem_size = Kernel_traits::kSmemSize;
+
+    const int num_m_block = (params.seqlen_q + Kernel_traits::kBlockM - 1) / Kernel_traits::kBlockM;
+    dim3 grid(num_m_block, params.b, params.h);
+
+    const bool is_even_MN = params.cu_seqlens_q == nullptr && params.cu_seqlens_k == nullptr && params.seqlen_k % Kernel_traits::kBlockN == 0 && params.seqlen_q % Kernel_traits::kBlockM == 0;
+    const bool is_even_K = params.d == Kernel_traits::kHeadDim;
+    const bool return_softmax = params.p_ptr != nullptr;
+    BOOL_SWITCH(is_even_MN, IsEvenMNConst, [&] {
+        EVENK_SWITCH(is_even_K, IsEvenKConst, [&] {
+            LOCAL_SWITCH((params.window_size_left >= 0 || params.window_size_right >= 0) && !Is_causal, Is_local, [&] {
+                BOOL_SWITCH(return_softmax, ReturnSoftmaxConst, [&] {
+                    ALIBI_SWITCH(params.alibi_slopes_ptr != nullptr, Has_alibi, [&] {
+                        SOFTCAP_SWITCH(params.softcap > 0.0, Is_softcap, [&] {
+                            auto kernel = &flash_fwd_kernel_sw_llm<Kernel_traits, Is_dropout && !Is_softcap, Is_causal, Is_local && !Is_causal, Has_alibi, IsEvenMNConst && IsEvenKConst && !Is_local && !ReturnSoftmaxConst && Kernel_traits::kHeadDim <= 128, IsEvenKConst, Is_softcap, ReturnSoftmaxConst && Is_dropout && !Is_softcap>;
+
+                            if (smem_size >= 48 * 1024) {
+                                C10_CUDA_CHECK(cudaFuncSetAttribute(
+                                    kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, smem_size));
+                            }
+
+                            kernel<<<grid, Kernel_traits::kNThreads, smem_size, stream>>>(params);
+
+                            cudaError_t err = cudaGetLastError();
+                            if (err != cudaSuccess) {
+                                printf("Kernel launch failed with error \"%s\".\n", cudaGetErrorString(err));
+                            }
+
+                            C10_CUDA_KERNEL_LAUNCH_CHECK();
+
+                        });
+                    });
+                });
+            });
+        });
+    });
+}
 
 
 
@@ -706,6 +757,21 @@ void run_mha_fwd_hdim128_16group_llm(Flash_fwd_params &params, cudaStream_t stre
     // run_flash_fwd<Flash_fwd_kernel_traits<Headdim, 128, 32, 4, false, false, T>, Is_dropout, Is_causal>(params, stream);
 
     run_flash_fwd_sparse_16group_llm<Flash_fwd_kernel_traits_llm<mask, Headdim, 64, 64, 4, false, false, T>, false, Is_causal>(params, stream);
+
+}
+
+
+template<typename T, bool Is_causal, int mask>
+void run_mha_fwd_hdim128_sw_llm(Flash_fwd_params &params, cudaStream_t stream) {
+
+    constexpr static int Headdim = 128;
+    auto dprops = at::cuda::getCurrentDeviceProperties();
+    bool is_sm8x = dprops->major == 8 && dprops->minor > 0;
+    // For sm86 or sm89, 64 x 64 is the fastest for causal (because it's square),
+    // and 128 x 32 (48 KB smem) is the fastest for non-causal since we get 2 CTAs per SM.
+    // run_flash_fwd<Flash_fwd_kernel_traits<Headdim, 128, 32, 4, false, false, T>, Is_dropout, Is_causal>(params, stream);
+
+    run_flash_fwd_sparse_sw<Flash_fwd_kernel_traits_llm<mask, Headdim, 64, 64, 4, false, false, T>, false, Is_causal>(params, stream);
 
 }
 

@@ -5,6 +5,6 @@
 #include "flash_fwd_launch_template.h"
 
 template<>
-void run_mha_fwd_sparse_llm_<cutlass::bfloat16_t, 128, false, 0>(Flash_fwd_params &params, cudaStream_t stream) {
+void run_mha_fwd_sparse_llm_<cutlass::bfloat16_t, 128, true, 0>(Flash_fwd_params &params, cudaStream_t stream) {
     run_mha_fwd_hdim128_16group_llm<cutlass::bfloat16_t, true, 0>(params, stream);
 }

@@ -63,18 +63,27 @@ struct BlockInfo_llm {
         , seqlen_k_cache((!Varlen || params.cu_seqlens_k == nullptr ? params.seqlen_k : (params.is_seqlens_k_cumulative ? params.cu_seqlens_k[bidb + 1] - sum_s_k : params.cu_seqlens_k[bidb])) - leftpad_k)
         // , actual_seqlen_k(params.seqused_k ? params.seqused_k[bidb] - leftpad_k : seqlen_k_cache + (params.knew_ptr == nullptr ? 0 : params.seqlen_knew))
         // , actual_seqlen_k(group_id < params.increment_groups ? params.seqlen_k + 1 : params.seqlen_k)
+        // , actual_seqlen_q(
+        //     (mask_type == 1) 
+        //         ? (group_id < params.increment_groups ? params.seqlen_q + params.group_num 
+        //             : (group_id == params.increment_groups ? params.seqlen_q + params.special_group_increment 
+        //             : params.seqlen_q))
+        //         : (group_id < params.increment_groups ? params.seqlen_q + 1 : params.seqlen_q))
+        // , actual_seqlen_k(
+        //     (mask_type == 1) 
+        //         ? (group_id < params.increment_groups ? params.seqlen_k + params.group_num 
+        //             : (group_id == params.increment_groups ? params.seqlen_k + params.special_group_increment 
+        //             : params.seqlen_k))
+        //         : (group_id < params.increment_groups ? params.seqlen_q + 1 : params.seqlen_k))
         , actual_seqlen_q(
-            (mask_type == 1) 
-                ? (group_id < params.increment_groups ? params.seqlen_q + params.group_num 
-                    : (group_id == params.increment_groups ? params.seqlen_q + params.special_group_increment 
-                    : params.seqlen_q))
+            (mask_type == 4) 
+                ? params.seqlen_q
                 : (group_id < params.increment_groups ? params.seqlen_q + 1 : params.seqlen_q))
         , actual_seqlen_k(
-            (mask_type == 1) 
-                ? (group_id < params.increment_groups ? params.seqlen_k + params.group_num 
-                    : (group_id == params.increment_groups ? params.seqlen_k + params.special_group_increment 
-                    : params.seqlen_k))
+            (mask_type == 4) 
+                ? params.seqlen_k
                 : (group_id < params.increment_groups ? params.seqlen_q + 1 : params.seqlen_k))
+        , org_seqlen_k(params.org_seqlen_k)
         {
         }
 
@@ -95,6 +104,7 @@ struct BlockInfo_llm {
     const int leftpad_k;
     const int seqlen_k_cache;
     const int actual_seqlen_k;
+    const int org_seqlen_k;
 };
 
 

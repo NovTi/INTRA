@@ -1,0 +1,24 @@
+# Main environment: INTRA / MoBA / NSA students, LoRA training, NIAH, SCROLLS eval.
+# The paper runs used torch 2.11 (CUDA 12.9/13.0), transformers 5.8.1, peft 0.19.1 on A100 GPUs.
+torch>=2.6                 # FlexAttention (torch.nn.attention.flex_attention)
+transformers>=5.0,<6       # AttentionInterface registry; tested with 5.8.1
+peft                       # LoRA via model.add_adapter; tested with 0.19.1
+accelerate
+tokenizers
+huggingface_hub            # scripts/prepare_data.sh downloads PG19 with snapshot_download
+pyarrow                    # PG19 parquet haystack
+numpy
+
+# Optional
+# rouge_score              # only for the cross-check in `python metrics.py`
+# datasets                 # only for pack_retrieval.py with a non-parquet haystack
+
+# Training-free baselines run in a SEPARATE environment (they patch transformers 4.46 internals):
+#   MInference:  pip install minference "transformers==4.46.3" "tokenizers>=0.20,<0.21"
+#                (minference imports `kivi_gemv`, which is only needed for KV quantisation; if it
+#                 is not installable, a stub module that raises on attribute access is sufficient)
+#   XAttention:  https://github.com/mit-han-lab/x-attention (pip install -e, importable as `xattn`)
+#                + https://github.com/mit-han-lab/Block-Sparse-Attention (CUDA build)
+#                + flashinfer (decode), in the same transformers 4.46.3 environment
+# MoBA: https://github.com/MoonshotAI/MoBA is only needed for moba_attn.py's reference check
+#       (MOBA_REPO=/path/to/MoBA python moba_attn.py); training/eval use the port in moba_attn.py.

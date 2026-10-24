@@ -1,0 +1,11 @@
+# Wan2.2-TI2V-5B experiments (generation, training, speed). Paper timings: torch 2.11.0+cu129, A100.
+torch>=2.9                # fast path calls torch.ops.aten._flash_attention_forward(window_size_*)
+diffusers==0.37.0         # WanINTRAAttnProcessor mirrors diffusers 0.37 WanAttnProcessor (RoPE, QK-norm)
+transformers>=5.0         # UMT5 text encoder; runs used 5.10.2 / 5.12.1
+accelerate                # runs used 1.15.0
+peft                      # DoRA adapters (version used for the paper run was not recorded)
+prodigyopt                # Prodigy optimizer (train.py)
+ftfy                      # WanPipeline prompt cleaning
+imageio
+imageio-ffmpeg            # mp4 export
+# VBench scoring uses a separate environment; see README ("VBench").

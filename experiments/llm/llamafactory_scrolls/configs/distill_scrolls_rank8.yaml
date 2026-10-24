@@ -1,0 +1,40 @@
+### model
+model_name_or_path: meta-llama/Llama-3.1-8B-Instruct   # also used for the frozen teacher
+trust_remote_code: true
+
+### method
+stage: distill
+do_train: true
+finetuning_type: lora
+lora_rank: 8
+lora_target: all
+
+### dataset
+# The rows come from $INTRA_DISTILL_DATA (see README); this entry only supplies the alpaca column mapping.
+dataset: alpaca_en
+template: llama3
+cutoff_len: 3276800
+max_samples: 120000          # no effect: truncation is disabled in data/loader.py
+overwrite_cache: true
+preprocessing_num_workers: 1
+dataloader_num_workers: 1
+
+### output
+# Substrings of output_dir switch training modes (see README); add "orgcompare" for the dense FT baseline.
+output_dir: saves/llama3-8b/lora/distill_lr-4_ep8_8groups_scroll_swmask_cont2
+logging_steps: 10
+save_steps: 500
+plot_loss: true
+overwrite_output_dir: true
+save_only_model: false
+
+### train
+per_device_train_batch_size: 1
+gradient_accumulation_steps: 8
+learning_rate: 1.0e-4
+num_train_epochs: 8
+lr_scheduler_type: cosine
+warmup_ratio: 0.1
+bf16: true
+ddp_timeout: 180000000
+resume_from_checkpoint: null

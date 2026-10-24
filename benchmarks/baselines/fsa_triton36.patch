@@ -1,0 +1,13 @@
+diff --git a/fsa/ops/FSA_topk_sparse_attention.py b/fsa/ops/FSA_topk_sparse_attention.py
+index 9c63cdb..c376016 100644
+--- a/fsa/ops/FSA_topk_sparse_attention.py
++++ b/fsa/ops/FSA_topk_sparse_attention.py
+@@ -206,7 +206,7 @@ def reduce_kernel(
+     acc_o = tl.zeros((BLOCK_SIZE_D,), dtype=tl.float32)
+     acc_o += last_acc_o
+ 
+-    lse_ptrs = (lse_ptr + pid_q_j * stride_lse_n,)
++    lse_ptrs = lse_ptr + pid_q_j * stride_lse_n
+     # Load lse
+     lse = tl.load(lse_ptrs, mask=pid_q_j < total_len, other=float("-inf"))
+ 

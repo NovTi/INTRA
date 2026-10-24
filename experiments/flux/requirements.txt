@@ -1,0 +1,20 @@
+# FLUX.1-dev LoRA self-distillation (train_distill.py) and inference.
+# intra_processor.py mirrors the FluxAttnProcessor2_0 of diffusers 0.33; diffusers >= 0.35 rewrote
+# the Flux attention classes, so keep the pin.
+torch>=2.1
+diffusers==0.33.1
+transformers>=4.41.2
+accelerate>=0.31.0
+peft>=0.11.1
+huggingface_hub
+safetensors
+sentencepiece
+protobuf
+numpy
+tqdm
+prodigyopt
+# CLEAR's dataset.py imports cv2 and PIL
+opencv-python
+Pillow
+# experiment tracking: train.sh reports to wandb by default (REPORT_TO=tensorboard needs `tensorboard` instead)
+wandb

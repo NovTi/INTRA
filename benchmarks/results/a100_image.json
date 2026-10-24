@@ -1,0 +1,41 @@
+{
+ "device": "NVIDIA A100-SXM4-80GB",
+ "args": {
+  "mode": "image",
+  "seqlens": [
+   4096,
+   8192,
+   16384,
+   32768,
+   65536
+  ],
+  "groups": [
+   2,
+   8
+  ],
+  "batch": 1,
+  "heads": 32,
+  "kv_heads": 8,
+  "image_heads": 24,
+  "warmup": 10,
+  "iters": 50
+ },
+ "rows": [
+  {
+   "width": 64,
+   "seqlen": 4608,
+   "dense": 1.3916159868240356,
+   "scatter": 0.37439998984336853,
+   "gather0": 0.3078399896621704,
+   "interleaved_mean": 0.34111998975276947
+  },
+  {
+   "width": 128,
+   "seqlen": 16896,
+   "dense": 17.863487243652344,
+   "scatter": 3.25216007232666,
+   "gather0": 1.1524800062179565,
+   "interleaved_mean": 2.2023200392723083
+  }
+ ]
+}

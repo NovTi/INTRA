@@ -1,0 +1,36 @@
+{
+ "env": {
+  "gpu": "NVIDIA A100-SXM4-80GB",
+  "sm": "sm80",
+  "torch": "2.11.0+cu129",
+  "cuda": "12.9",
+  "cudnn": 91701
+ },
+ "arm": "dense",
+ "grid": "480p_49f",
+ "prompt": "A red fox trotting through fresh snow in a birch forest at sunrise, cinematic tracking shot, highly detailed, realistic motion",
+ "steps": 50,
+ "guidance": 5.0,
+ "runs": [
+  {
+   "rep": 0,
+   "total_s": 44.292773604393005,
+   "pipe_s": 41.685998380184174,
+   "vae_decode_s": 2.606775224208832,
+   "transformer_s": 40.85752631723881,
+   "transformer_calls": 100,
+   "per_forward_ms": 406.8864732980728,
+   "other_s": 0.8284720629453659
+  },
+  {
+   "rep": 1,
+   "total_s": 44.13444022834301,
+   "pipe_s": 41.563263192772865,
+   "vae_decode_s": 2.5711770355701447,
+   "transformer_s": 40.92183776944876,
+   "transformer_calls": 100,
+   "per_forward_ms": 409.2942662537098,
+   "other_s": 0.6414254233241081
+  }
+ ]
+}

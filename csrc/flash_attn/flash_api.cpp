@@ -237,21 +237,23 @@ void set_params_fprop(Flash_fwd_params &params,
 
 
 void run_mha_fwd(Flash_fwd_params &params, cudaStream_t stream, bool force_split_kernel=false) {
-    // FP16_SWITCH(!params.is_bf16, [&] {
-    //     HEADDIM_SWITCH(params.d, [&] {
-    //         MASK_SWITCH(params.mask, [&] {
-    //             run_mha_fwd_sparse_text_front_<elem_type, kHeadDim, false, mask>(params, stream);
-    //         });
-    //     });
-    // });
-    ;
+    FP16_SWITCH(!params.is_bf16, [&] {
+        HEADDIM_SWITCH(params.d, [&] {
+            MASK_SWITCH(params.mask, [&] {
+                run_mha_fwd_sparse_text_front_<elem_type, kHeadDim, false, mask>(params, stream);
+            });
+        });
+    });
 }
 
 void run_mha_fwd_llm(Flash_fwd_params &params, cudaStream_t stream, bool force_split_kernel=false) {
+    // run_mha_fwd_sparse_llm_<cutlass::bfloat16_t, 128, true, 0>(params, stream);
+    // run_mha_fwd_sparse_llm_<cutlass::bfloat16_t, 128, true, 4>(params, stream);
+
     FP16_SWITCH(!params.is_bf16, [&] {
         HEADDIM_SWITCH(params.d, [&] {
             MASK_SWITCH_LLM(params.mask, [&] {
-                run_mha_fwd_sparse_llm_<elem_type, kHeadDim, false, mask>(params, stream);
+                run_mha_fwd_sparse_llm_<elem_type, kHeadDim, true, mask>(params, stream);
             });
         });
     });
@@ -371,7 +373,7 @@ mha_fwd(at::Tensor &q,         // batch_size x seqlen_q x num_heads x round_mult
     auto dprops = at::cuda::getCurrentDeviceProperties();
     // bool is_sm75 = dprops->major == 7 && dprops->minor == 5;
     bool is_sm8x = dprops->major == 8 && dprops->minor >= 0;
-    bool is_sm90 = dprops->major == 9 && dprops->minor == 0;
+    bool is_sm90 = dprops->major >= 9;  // INTRA: also allow Hopper/Blackwell (sm80 code path)
     TORCH_CHECK(is_sm90 || is_sm8x, "FlashAttention only supports Ampere GPUs or newer.");
     // We will support Turing in the near future
     // TORCH_CHECK(is_sm90 || is_sm8x || is_sm75, "FlashAttention only supports Turing GPUs or newer.");
@@ -566,12 +568,15 @@ mha_fwd_llm(at::Tensor &q,         // batch_size x seqlen_q x num_heads x round_
         const bool return_softmax,
         c10::optional<at::Generator> gen_,
         int mask = 0,
-        int group_num = 16) {
+        int group_num = 8,
+        // Sliding-window extent for mask=4: one 64-query block plus (window - 64) tokens of
+        // history. The kernel derives its lookback as (params.seqlen_k - kBlockM).
+        int window = 576) {
             
     auto dprops = at::cuda::getCurrentDeviceProperties();
     // bool is_sm75 = dprops->major == 7 && dprops->minor == 5;
     bool is_sm8x = dprops->major == 8 && dprops->minor >= 0;
-    bool is_sm90 = dprops->major == 9 && dprops->minor == 0;
+    bool is_sm90 = dprops->major >= 9;  // INTRA: also allow Hopper/Blackwell (sm80 code path)
     TORCH_CHECK(is_sm90 || is_sm8x, "FlashAttention only supports Ampere GPUs or newer.");
     // We will support Turing in the near future
     // TORCH_CHECK(is_sm90 || is_sm8x || is_sm75, "FlashAttention only supports Turing GPUs or newer.");
@@ -600,8 +605,11 @@ mha_fwd_llm(at::Tensor &q,         // batch_size x seqlen_q x num_heads x round_
     // const int seqlen_k = k.size(1);
 
     //////////////// sparse ////////////////
-    int seqlen_q = (mask == 0) ? sizes[1] / group_num : sizes[1] / (group_num*group_num) * group_num;
-    const int seqlen_k = (mask == 0) ? k.size(1) / group_num : k.size(1) / (group_num*group_num) * group_num;
+    // int seqlen_q = (mask == 0) ? sizes[1] / group_num : sizes[1] / (group_num*group_num) * group_num;
+    // const int seqlen_k = (mask == 0) ? k.size(1) / group_num : k.size(1) / (group_num*group_num) * group_num;
+    // Scatter (0) and Gather1 (1) run each token group as one dense causal problem of S / G tokens.
+    int seqlen_q = (mask == 0 || mask == 1) ? sizes[1] / group_num : sizes[1];
+    const int seqlen_k = (mask == 0 || mask == 1) ? k.size(1) / group_num : window;
 
     int num_heads = sizes[2];
     const int head_size = sizes[3];
@@ -694,9 +702,21 @@ mha_fwd_llm(at::Tensor &q,         // batch_size x seqlen_q x num_heads x round_
     params.group_num = group_num;
     params.increment_groups = mask == 0 ? k.size(1) % group_num : (k.size(1) % (group_num*group_num)) / group_num;
 
-    if (mask == 1){
-        params.special_group_increment = (k.size(1) % (group_num*group_num)) % group_num;
+    if (mask == 0){
+        int max_seqlen_q = (sizes[1] % group_num == 0) ? seqlen_q : seqlen_q + 1;
+        params.max_seqlen_q = max_seqlen_q;
+    } else if (mask == 1) {
+        TORCH_CHECK(sizes[1] % (group_num * group_num) == 0,
+                    "Gather1 (mask=1) requires seqlen divisible by group_num^2");
+        params.max_seqlen_q = seqlen_q;
     }
+
+    params.org_seqlen_k = k.size(1);
+
+    // if (mask == 1){
+    //     params.special_group_increment = (k.size(1) % (group_num*group_num)) % group_num;
+    //     max_seqlen_q = (params.increment_groups == 0) ? seqlen_q + params.special_group_increment : seqlen_q + group_num;
+    // }
 
 
     // Keep references to these tensors to extend their lifetime

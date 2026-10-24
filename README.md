@@ -29,8 +29,8 @@ Requirements: an NVIDIA GPU with compute capability 8.0 or newer (developed and 
 also tested on H100), CUDA >= 11.7, PyTorch >= 2.4 and `ninja`.
 
 ```bash
-git clone --recursive https://github.com/NovTi/intra.git
-cd intra
+git clone --recursive https://github.com/NovTi/INTRA.git
+cd INTRA
 pip install --no-build-isolation .          # builds intra_attn_cuda (sm80, plus sm90/sm100 cubins)
 python tests/test_kernel.py                 # every pattern against the fp32 dense reference
 ```
